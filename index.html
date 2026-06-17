@@ -27,7 +27,23 @@
     <aside class="controls">
       <details class="group" id="grpData" open>
         <summary><span class="num">1</span> Data</summary>
-        <p class="hint">Export from SMS: <strong>the mesh as <code>.h5</code></strong> (geometry) and <strong>all datasets as <code>.h5</code></strong> (results). Drop both.</p>
+        <p class="hint">You need <strong>two <code>.h5</code> files</strong>, both exported from your <strong>mesh</strong> in SMS:</p>
+        <details class="howto" open>
+          <summary>How to export them from SMS</summary>
+          <p class="sub-hd">File 1 — mesh geometry</p>
+          <ol class="hint-list">
+            <li><strong>Right-click the mesh</strong> (under <em>Mesh Data</em> in the Project Explorer) → <strong>Export…</strong></li>
+            <li>Set <strong>Save as type</strong> → <strong>XMDF File (*.h5)</strong>, give it a name, and save it anywhere you'll remember.</li>
+          </ol>
+          <p class="sub-hd">File 2 — all datasets</p>
+          <ol class="hint-list">
+            <li><strong>Right-click the mesh</strong> again → <strong>Export Datasets…</strong></li>
+            <li>In the <strong>Select Tree Item</strong> dialog, check <strong>Z</strong> plus the result datasets you want — easiest is to grab them all.</li>
+            <li>Each simulation has <strong>Shear&nbsp;(B_Stress)</strong>, Froude, <strong>Velocity&nbsp;Magnitude</strong>, Velocity&nbsp;(x/y), <strong>Water&nbsp;Depth</strong>, and <strong>Water&nbsp;Elevation</strong>. <em>Froude isn't needed</em> for these figures.</li>
+            <li>Give it a name and save.</li>
+          </ol>
+          <p class="hint tiny">Drop both files below — any order; the app detects which is which.</p>
+        </details>
         <input id="files" type="file" accept=".h5" multiple />
         <div id="fileStatus" class="status"></div>
         <div id="dataSelectors" hidden>
