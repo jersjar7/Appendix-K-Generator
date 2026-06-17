@@ -20,5 +20,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 #messages { margin: 8px 0; }
 .msg-ok { background: #e6f4ea; border: 1px solid #b7e0c4; padding: 8px 10px; border-radius: 6px; }
 .msg-err { background: #fdecea; border: 1px solid #f3b6ae; padding: 8px 10px; border-radius: 6px; }
+.view-row { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.rotate { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #41506a; }
+.rotate .inline { flex-direction: row; align-items: center; gap: 4px; }
 #result { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow: auto; }
-#figure { max-width: 100%; height: auto; display: block; }
+#figure { max-width: 100%; height: auto; display: block; margin: 0 auto; }
