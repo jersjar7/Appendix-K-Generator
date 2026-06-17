@@ -17,6 +17,7 @@ header h1 { margin: 0 0 4px; font-size: 1.4rem; }
 .group > summary::-webkit-details-marker { display: none; }
 .group > summary::before { content: "▸"; display: inline-block; width: 1em; color: var(--accent); transition: transform 0.15s; }
 .group[open] > summary::before { transform: rotate(90deg); }
+.group > summary .num { display: inline-grid; place-items: center; width: 21px; height: 21px; background: var(--accent); color: #fff; border-radius: 50%; font-size: 0.74rem; font-weight: 700; margin-right: 7px; vertical-align: middle; }
 .group > *:not(summary) { margin-bottom: 10px; }
 .group label { display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem; color: #41506a; }
 .group label.inline { flex-direction: row; align-items: center; gap: 6px; }
@@ -52,6 +53,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .msg-err { background: #fdecea; border: 1px solid #f3b6ae; padding: 8px 10px; border-radius: 6px; }
 #result { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 #figure { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+#placeholder { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 480px; padding: 40px; color: var(--muted); font-size: 1.05rem; line-height: 1.5; border: 2px dashed var(--line); border-radius: 8px; }
+#customize { display: flex; flex-direction: column; gap: 12px; }
+[hidden] { display: none !important; }
 footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 0 0 24px; }
 
 @media (max-width: 1000px) {

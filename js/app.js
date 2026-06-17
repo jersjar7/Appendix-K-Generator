@@ -40,7 +40,10 @@ function refreshStatus() {
     $("run").innerHTML = datasets.runs.map((r, i) => `<option value="${i}">${runLabel(r.name)}</option>`).join("");
     populateParams();
   }
-  $("generate").disabled = !(geom && datasets);
+  // progressive disclosure: run/parameter + Generate appear once both files are in
+  const both = !!(geom && datasets);
+  $("dataSelectors").hidden = !both;
+  $("actions").hidden = !both;
 }
 
 function populateParams() {
@@ -81,6 +84,11 @@ async function generate() {
     wetMax: hi,
   };
   await render();
+  // reveal the figure and the rest of the controls (collapsed) on first generate
+  $("placeholder").hidden = true;
+  $("figure").hidden = false;
+  $("download").hidden = false;
+  $("customize").hidden = false;
   msg(`Generated ${scene.title}. Wet max ${scene.wetMax.toFixed(2)} ${scene.def.units}.`, "ok");
 }
 

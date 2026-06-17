@@ -18,26 +18,32 @@
   <div class="dashboard">
     <main class="canvas-area">
       <div id="messages"></div>
-      <div id="result"><canvas id="figure" width="1650" height="1275"></canvas></div>
+      <div id="result">
+        <div id="placeholder"><span>Your figure will appear here once you add the two dataset <code>.h5</code> files and click <strong>Generate&nbsp;figure</strong>.</span></div>
+        <canvas id="figure" width="1650" height="1275" hidden></canvas>
+      </div>
     </main>
 
     <aside class="controls">
-      <div class="actions">
-        <button id="generate" class="primary" disabled>Generate figure</button>
-        <button id="download" class="ghost" disabled>Download PNG</button>
-      </div>
-
-      <details class="group" open>
-        <summary>Data</summary>
+      <details class="group" id="grpData" open>
+        <summary><span class="num">1</span> Data</summary>
         <p class="hint">Export from SMS: <strong>the mesh as <code>.h5</code></strong> (geometry) and <strong>all datasets as <code>.h5</code></strong> (results). Drop both.</p>
         <input id="files" type="file" accept=".h5" multiple />
         <div id="fileStatus" class="status"></div>
-        <label>Run <select id="run"></select></label>
-        <label>Parameter <select id="param"></select></label>
+        <div id="dataSelectors" hidden>
+          <label>Run <select id="run"></select></label>
+          <label>Parameter <select id="param"></select></label>
+        </div>
       </details>
 
-      <details class="group" open>
-        <summary>Frame &amp; basemap</summary>
+      <div class="actions" id="actions" hidden>
+        <button id="generate" class="primary">Generate figure</button>
+        <button id="download" class="ghost" hidden>Download PNG</button>
+      </div>
+
+      <div id="customize" hidden>
+      <details class="group">
+        <summary><span class="num">2</span> Frame &amp; basemap</summary>
         <label>Orientation
           <select id="orientation">
             <option value="landscape">Landscape (11 × 8.5)</option>
@@ -74,8 +80,8 @@
         </div>
       </details>
 
-      <details class="group" open>
-        <summary>Legend</summary>
+      <details class="group">
+        <summary><span class="num">3</span> Legend</summary>
         <label>Position
           <select id="legendPos">
             <option value="tl">Top-left</option>
@@ -96,7 +102,7 @@
       </details>
 
       <details class="group">
-        <summary>Title</summary>
+        <summary><span class="num">4</span> Title</summary>
         <label>Position
           <select id="titlePos">
             <option value="tc">Top-center</option>
@@ -115,7 +121,7 @@
       </details>
 
       <details class="group">
-        <summary>North arrow</summary>
+        <summary><span class="num">5</span> North arrow</summary>
         <label>Position
           <select id="naPos">
             <option value="br">Bottom-right</option>
@@ -136,7 +142,7 @@
       </details>
 
       <details class="group">
-        <summary>Scale bar</summary>
+        <summary><span class="num">6</span> Scale bar</summary>
         <label>Position
           <select id="sbPos">
             <option value="bl">Bottom-left</option>
@@ -152,6 +158,7 @@
         </div>
         <label>Size <input id="sbSize" type="number" value="1.6" min="0.6" max="4" step="0.1" /></label>
       </details>
+      </div>
     </aside>
   </div>
 
