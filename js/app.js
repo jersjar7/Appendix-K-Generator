@@ -108,17 +108,22 @@ async function render() {
   fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, scene.opts));
   ctx.restore();
 
-  // upright overlays with subtle panels
-  drawTitle(ctx, scene.title, frame.w);
-  drawLegend(ctx, legendBands(scene.paramName, scene.opts), {
-    frameW: frame.w, frameH: frame.h,
-    anchor: $("legendPos").value,
-    offX: parseFloat($("legendX").value) || 0,
-    offY: parseFloat($("legendY").value) || 0,
-    fontSize: parseFloat($("legendFont").value) || 16,
+  // upright overlays — each placeable + sizable via its own controls
+  const num = (id, d) => parseFloat($(id).value) || d;
+  const F = { frameW: frame.w, frameH: frame.h };
+  drawTitle(ctx, scene.title, {
+    ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
-  drawNorthArrow(ctx, frame.w - 46, frame.h - 74, view.rotRad);
-  drawScaleBar(ctx, 70, frame.h - 36, ftPerPixel(view, scene.latRad));
+  drawLegend(ctx, legendBands(scene.paramName, scene.opts), {
+    ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
+  });
+  drawNorthArrow(ctx, {
+    ...F, anchor: $("naPos").value, offX: num("naX", 0), offY: num("naY", 0), radius: num("naSize", 46), rotRad: view.rotRad,
+  });
+  drawScaleBar(ctx, {
+    ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
+    ftPerPixel: ftPerPixel(view, scene.latRad), sizeScale: num("sbSize", 1.4),
+  });
 
   $("download").disabled = false;
   $("download").onclick = () => {
@@ -132,8 +137,12 @@ async function render() {
 // ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
 $("basemap").addEventListener("change", () => scene && render());
-for (const id of ["legendPos", "legendX", "legendY", "legendFont"])
-  $(id).addEventListener("input", () => scene && render());
+for (const id of [
+  "legendPos", "legendX", "legendY", "legendFont",
+  "titlePos", "titleX", "titleY", "titleFont",
+  "naPos", "naX", "naY", "naSize",
+  "sbPos", "sbX", "sbY", "sbSize",
+]) $(id).addEventListener("input", () => scene && render());
 function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotDeg; scene && render(); }
 $("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
 $("rotCW").addEventListener("click", () => setRot(rotDeg + 90));
