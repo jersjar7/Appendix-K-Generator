@@ -33,7 +33,7 @@ export async function drawBasemap(ctx, view, { url = ESRI_WORLD_IMAGERY } = {}) 
   if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) > 400) return;
 
   ctx.save();
-  ctx.translate(view.w / 2, view.h / 2);
+  ctx.translate(view.originX, view.originY);
   ctx.rotate(view.rotRad);
   const jobs = [];
   for (let tx = tx0; tx <= tx1; tx++)

@@ -13,19 +13,22 @@ export const FRAMES = {
   portrait:  { w: 1275, h: 1650 }, // 8.5 × 11 in @ 150 ppi
 };
 
-// data: merc bbox {x0,x1,y0,y1}. Returns a view object.
-export function makeView(data, { w, h, rotDeg = 0, marginFrac = 0.9 }) {
+// data: merc bbox {x0,x1,y0,y1}. zoom multiplies the auto-fit scale; panX/panY
+// shift the view in screen pixels. Returns a view object.
+export function makeView(data, { w, h, rotDeg = 0, marginFrac = 0.9, zoom = 1, panX = 0, panY = 0 }) {
   const cx = (data.x0 + data.x1) / 2, cy = (data.y0 + data.y1) / 2;
   const dx = data.x1 - data.x0 || 1, dy = data.y1 - data.y0 || 1;
-  const scale = Math.min((w * marginFrac) / dx, (h * marginFrac) / dy);
+  const scale = Math.min((w * marginFrac) / dx, (h * marginFrac) / dy) * zoom;
   const rotRad = (rotDeg * Math.PI) / 180;
   const cos = Math.cos(rotRad), sin = Math.sin(rotRad);
+  // the data centroid maps to this screen point (pan shifts it)
+  const originX = w / 2 + panX, originY = h / 2 + panY;
 
   const toLocal = (mx, my) => [scale * (mx - cx), -scale * (my - cy)];
 
   // screen pixel (sx,sy) → merc, for working out which tiles cover the frame
   const screenToMerc = (sx, sy) => {
-    const px = sx - w / 2, py = sy - h / 2;        // relative to center
+    const px = sx - originX, py = sy - originY;     // relative to the (panned) origin
     const lx = px * cos + py * sin;                 // un-rotate (Rot(-θ))
     const ly = -px * sin + py * cos;
     return { x: cx + lx / scale, y: cy - ly / scale };
@@ -39,7 +42,7 @@ export function makeView(data, { w, h, rotDeg = 0, marginFrac = 0.9 }) {
     return { x0, x1, y0, y1 };
   };
 
-  return { w, h, cx, cy, scale, rotRad, toLocal, coverBbox, mercConst: { R, C } };
+  return { w, h, cx, cy, scale, rotRad, originX, originY, toLocal, coverBbox, mercConst: { R, C } };
 }
 
 // ground feet per screen pixel (for the scale bar), accounting for mercator

@@ -33,6 +33,17 @@ button.ghost { background: #eef2f7; }
 button:disabled { opacity: 0.5; cursor: default; }
 .rotate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.84rem; color: #41506a; }
 .rotate button { padding: 6px 9px; }
+.viewnav { font-size: 0.84rem; color: #41506a; }
+.zoomrow { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.zoomrow .sep { margin-left: auto; }
+.zoomrow button { padding: 5px 10px; font-weight: 600; }
+.zoomrow .reset { font-weight: 400; }
+.padgrid { display: grid; grid-template-columns: repeat(3, 38px); grid-auto-rows: 32px; gap: 4px; justify-content: start; }
+.padgrid button { padding: 0; }
+#panU { grid-column: 2; grid-row: 1; }
+#panL { grid-column: 1; grid-row: 2; }
+#panD { grid-column: 2; grid-row: 2; }
+#panR { grid-column: 3; grid-row: 2; }
 
 .status { font-size: 0.84rem; color: #41506a; }
 .status div { padding: 1px 0; }
