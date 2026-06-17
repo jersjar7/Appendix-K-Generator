@@ -5,7 +5,7 @@ import { makeColorFn, legendBands, paramDef } from "./ramps.js";
 import { fillMesh } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js";
-import { drawBasemap, ESRI_WORLD_IMAGERY, USGS_IMAGERY } from "./tiles.js";
+import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
 
 const $ = (id) => document.getElementById(id);
 let geom = null, datasets = null, dFile = null, ready = false;
@@ -103,11 +103,10 @@ async function render() {
   // neutral backdrop (only visible if a tile fails); full-bleed otherwise
   ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
 
-  const bm = $("basemap").value;
-  if (bm !== "none") await drawBasemap(ctx, view, { url: bm === "usgs" ? USGS_IMAGERY : ESRI_WORLD_IMAGERY });
-
+  // Esri World Imagery aerial (best-effort; figure still renders if offline)
+  await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });
   // fade the aerial so contours read on top
-  if (bm !== "none") { ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h); }
+  ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h);
 
   // contours, rotated with the map (shares the panned origin)
   ctx.save();
@@ -145,7 +144,6 @@ async function render() {
 
 // ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
-$("basemap").addEventListener("change", () => scene && render());
 for (const id of [
   "legendPos", "legendX", "legendY", "legendFont",
   "titlePos", "titleX", "titleY", "titleFont",
