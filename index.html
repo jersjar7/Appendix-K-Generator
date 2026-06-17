@@ -38,6 +38,22 @@
         <button id="generate" class="primary" disabled>Generate figure</button>
         <button id="download" class="ghost" disabled>Download PNG</button>
       </div>
+      <div class="row view-row">
+        <label>Orientation
+          <select id="orientation">
+            <option value="landscape">Landscape (11 × 8.5)</option>
+            <option value="portrait">Portrait (8.5 × 11)</option>
+          </select>
+        </label>
+        <div class="rotate">
+          <span>Rotate</span>
+          <button id="rotCCW" title="Rotate 90° counter-clockwise">⟲ 90°</button>
+          <button id="rotCW" title="Rotate 90° clockwise">⟳ 90°</button>
+          <label class="inline">angle
+            <input id="rot" type="number" value="0" step="5" style="width:5em" /> °
+          </label>
+        </div>
+      </div>
     </section>
 
     <div id="messages"></div>

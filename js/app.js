@@ -2,28 +2,21 @@ import * as h5wasm from "../vendor/h5wasm/hdf5_hl.js";
 import { readGeometry, readDatasets, finalTimestep, isGeometryFile, isDatasetsFile } from "./h5.js";
 import { toLonLat, lonLatToMerc } from "./geo.js";
 import { makeColorFn, legendBands, paramDef } from "./ramps.js";
-import { fitToScreen, fillMesh } from "./contour.js";
+import { fillMesh } from "./contour.js";
+import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY, USGS_IMAGERY } from "./tiles.js";
 
 const $ = (id) => document.getElementById(id);
-const PAD = 56;
-let geom = null;          // { N, xy, z, tris, wkt }
-let datasets = null;      // { runs: [{name, params}] }
-let gFile = null, dFile = null;
-let ready = false;
+let geom = null, datasets = null, dFile = null, ready = false;
+let scene = null;        // cached generated figure (so rotation/orientation are instant)
+let rotDeg = 0;
 
 (async () => { await h5wasm.ready; ready = true; })();
 
-function setStatus(html) { $("fileStatus").innerHTML = html; }
-function msg(text, type = "ok") {
-  $("messages").innerHTML = `<div class="msg-${type}">${text}</div>`;
-}
-
-// nicer run/param labels
-function runLabel(name) {
-  return name.replace(/\(SRH-2D\)/i, "").replace(/^EX\b/i, "Existing").replace(/^PR\b/i, "Proposed").trim();
-}
+const setStatus = (html) => ($("fileStatus").innerHTML = html);
+const msg = (text, type = "ok") => ($("messages").innerHTML = `<div class="msg-${type}">${text}</div>`);
+const runLabel = (n) => n.replace(/\(SRH-2D\)/i, "").replace(/^EX\b/i, "Existing").replace(/^PR\b/i, "Proposed").trim();
 
 $("files").addEventListener("change", async (e) => {
   if (!ready) await h5wasm.ready;
@@ -32,7 +25,7 @@ $("files").addEventListener("change", async (e) => {
     const fname = file.name.replace(/[^\w.]/g, "_");
     h5wasm.FS.writeFile(fname, buf);
     const h = new h5wasm.File(fname, "r");
-    if (isGeometryFile(h)) { gFile = h; geom = readGeometry(h); }
+    if (isGeometryFile(h)) { geom = readGeometry(h); }
     else if (isDatasetsFile(h)) { dFile = h; datasets = readDatasets(h); }
   }
   refreshStatus();
@@ -56,6 +49,7 @@ function populateParams() {
 }
 $("run").addEventListener("change", populateParams);
 
+// ---- generate: read data + build the cached scene, then render ----
 $("generate").addEventListener("click", async () => {
   $("generate").disabled = true;
   try { await generate(); } catch (err) { msg(err.message, "err"); console.error(err); }
@@ -68,47 +62,74 @@ async function generate() {
   const def = paramDef(paramName);
   const values = finalTimestep(dFile, run.name, paramName);
 
-  // project to web mercator (so a basemap can drop in later) and fit the canvas
   const { lon, lat } = toLonLat(geom.xy, geom.wkt);
   const { mx, my } = lonLatToMerc(lon, lat);
-  const cv = $("figure"), ctx = cv.getContext("2d");
-  const W = cv.width, H = cv.height;
-  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
-
-  const { sx, sy, fit } = fitToScreen(mx, my, W, H, PAD);
-
-  // faint aerial basemap underlay (best-effort; figure still renders if offline)
-  const bm = $("basemap").value;
-  if (bm !== "none") {
-    await drawBasemap(ctx, fit, { url: bm === "usgs" ? USGS_IMAGERY : ESRI_WORLD_IMAGERY });
-  }
-
-  // wet-data range for auto-scaled params
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < mx.length; i++) { if (mx[i] < x0) x0 = mx[i]; if (mx[i] > x1) x1 = mx[i]; if (my[i] < y0) y0 = my[i]; if (my[i] > y1) y1 = my[i]; }
   let lo = Infinity, hi = -Infinity;
-  for (const v of values) { if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; } }
+  for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
   const autoMax = niceMax(hi);
-  const opts = def.range
-    ? { min: def.range[0], max: def.range[1] }
-    : { min: 0, max: autoMax, interval: niceStep(autoMax / 12) }; // ~12 bands for auto-ranged params
+  const opts = def.range ? { min: def.range[0], max: def.range[1] }
+    : { min: 0, max: autoMax, interval: niceStep(autoMax / 12) };
 
-  fillMesh(ctx, sx, sy, geom.tris, values, makeColorFn(paramName, opts));
+  scene = {
+    mx, my, tris: geom.tris, values, def, paramName, opts,
+    bbox: { x0, x1, y0, y1 }, latRad: (lat.reduce((a, b) => a + b, 0) / lat.length) * Math.PI / 180,
+    title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
+    fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
+    wetMax: hi,
+  };
+  await render();
+  msg(`Generated ${scene.title}. Wet max ${scene.wetMax.toFixed(2)} ${scene.def.units}.`, "ok");
+}
 
-  drawTitle(ctx, `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`, W);
-  drawLegend(ctx, legendBands(paramName, opts), 24, 70);
-  drawNorthArrow(ctx, W - 44, H - 66);
-  const latMean = (lat.reduce((a, b) => a + b, 0) / lat.length) * Math.PI / 180;
-  const ftPerPx = (1 / fit.s) * Math.cos(latMean) / 0.3048;
-  drawScaleBar(ctx, 90, H - 30, ftPerPx);
+// ---- render: uses the cached scene + current orientation/rotation (instant) ----
+async function render() {
+  if (!scene) return;
+  const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
+  const cv = $("figure"); cv.width = frame.w; cv.height = frame.h;
+  const ctx = cv.getContext("2d");
+  const view = makeView(scene.bbox, { w: frame.w, h: frame.h, rotDeg });
+
+  // neutral backdrop (only visible if a tile fails); full-bleed otherwise
+  ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
+
+  const bm = $("basemap").value;
+  if (bm !== "none") await drawBasemap(ctx, view, { url: bm === "usgs" ? USGS_IMAGERY : ESRI_WORLD_IMAGERY });
+
+  // fade the aerial so contours read on top
+  if (bm !== "none") { ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h); }
+
+  // contours, rotated with the map
+  ctx.save();
+  ctx.translate(frame.w / 2, frame.h / 2); ctx.rotate(view.rotRad);
+  const N = scene.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
+  for (let i = 0; i < N; i++) { const p = view.toLocal(scene.mx[i], scene.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
+  fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, scene.opts));
+  ctx.restore();
+
+  // upright overlays with subtle panels
+  drawTitle(ctx, scene.title, frame.w);
+  drawLegend(ctx, legendBands(scene.paramName, scene.opts), 30, 78);
+  drawNorthArrow(ctx, frame.w - 46, frame.h - 74, view.rotRad);
+  drawScaleBar(ctx, 70, frame.h - 36, ftPerPixel(view, scene.latRad));
 
   $("download").disabled = false;
   $("download").onclick = () => {
     const a = document.createElement("a");
-    a.download = `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}.png`;
+    a.download = `${scene.fileBase}.png`;
     a.href = cv.toDataURL("image/png");
     a.click();
   };
-  msg(`Generated ${runLabel(run.name)} ${def.label}. Wet max ${hi.toFixed(2)} ${def.units}.`, "ok");
 }
+
+// ---- orientation + rotation controls ----
+$("orientation").addEventListener("change", () => scene && render());
+$("basemap").addEventListener("change", () => scene && render());
+function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotDeg; scene && render(); }
+$("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
+$("rotCW").addEventListener("click", () => setRot(rotDeg + 90));
+$("rot").addEventListener("change", () => setRot(parseFloat($("rot").value) || 0));
 
 function niceMax(v) {
   if (!isFinite(v) || v <= 0) return 1;
