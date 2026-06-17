@@ -15,19 +15,35 @@
     <p class="sub">Drop your SRH-2D mesh exports, get plan-view result figures over an aerial — all in your browser. Nothing is uploaded.</p>
   </header>
 
-  <main>
-    <section class="card">
-      <h2><span class="step">1</span> Drop the two mesh exports (per mesh)</h2>
-      <p class="hint">From SMS, export <strong>the mesh as <code>.h5</code></strong> (geometry) and <strong>all datasets as <code>.h5</code></strong> (results). Drop both here — the app figures out which is which.</p>
-      <input id="files" type="file" accept=".h5" multiple />
-      <div id="fileStatus" class="status"></div>
-    </section>
+  <div class="dashboard">
+    <main class="canvas-area">
+      <div id="messages"></div>
+      <div id="result"><canvas id="figure" width="1650" height="1275"></canvas></div>
+    </main>
 
-    <section class="card">
-      <h2><span class="step">2</span> Pick the figure</h2>
-      <div class="row">
+    <aside class="controls">
+      <div class="actions">
+        <button id="generate" class="primary" disabled>Generate figure</button>
+        <button id="download" class="ghost" disabled>Download PNG</button>
+      </div>
+
+      <details class="group" open>
+        <summary>Data</summary>
+        <p class="hint">Export from SMS: <strong>the mesh as <code>.h5</code></strong> (geometry) and <strong>all datasets as <code>.h5</code></strong> (results). Drop both.</p>
+        <input id="files" type="file" accept=".h5" multiple />
+        <div id="fileStatus" class="status"></div>
         <label>Run <select id="run"></select></label>
         <label>Parameter <select id="param"></select></label>
+      </details>
+
+      <details class="group" open>
+        <summary>Frame &amp; basemap</summary>
+        <label>Orientation
+          <select id="orientation">
+            <option value="landscape">Landscape (11 × 8.5)</option>
+            <option value="portrait">Portrait (8.5 × 11)</option>
+          </select>
+        </label>
         <label>Basemap
           <select id="basemap">
             <option value="esri">Esri World Imagery</option>
@@ -35,30 +51,36 @@
             <option value="none">None</option>
           </select>
         </label>
-        <button id="generate" class="primary" disabled>Generate figure</button>
-        <button id="download" class="ghost" disabled>Download PNG</button>
-      </div>
-      <div class="row view-row">
-        <label>Orientation
-          <select id="orientation">
-            <option value="landscape">Landscape (11 × 8.5)</option>
-            <option value="portrait">Portrait (8.5 × 11)</option>
-          </select>
-        </label>
         <div class="rotate">
           <span>Rotate</span>
           <button id="rotCCW" title="Rotate 90° counter-clockwise">⟲ 90°</button>
           <button id="rotCW" title="Rotate 90° clockwise">⟳ 90°</button>
-          <label class="inline">angle
-            <input id="rot" type="number" value="0" step="5" style="width:5em" /> °
-          </label>
+          <label class="inline">angle <input id="rot" type="number" value="0" step="5" /> °</label>
         </div>
-      </div>
-    </section>
+      </details>
 
-    <div id="messages"></div>
-    <div id="result"><canvas id="figure" width="1280" height="760"></canvas></div>
-  </main>
+      <details class="group" open>
+        <summary>Legend</summary>
+        <label>Position
+          <select id="legendPos">
+            <option value="tl">Top-left</option>
+            <option value="tc">Top-center</option>
+            <option value="tr">Top-right</option>
+            <option value="ml">Middle-left</option>
+            <option value="mr">Middle-right</option>
+            <option value="bl">Bottom-left</option>
+            <option value="bc">Bottom-center</option>
+            <option value="br">Bottom-right</option>
+          </select>
+        </label>
+        <div class="row2">
+          <label class="inline">Nudge X <input id="legendX" type="number" value="0" step="10" /></label>
+          <label class="inline">Nudge Y <input id="legendY" type="number" value="0" step="10" /></label>
+        </div>
+        <label>Font size <input id="legendFont" type="number" value="16" min="8" max="40" step="1" /></label>
+      </details>
+    </aside>
+  </div>
 
   <footer><p>SRH-2D result figures · runs entirely client-side</p></footer>
   <script type="module" src="js/app.js"></script>

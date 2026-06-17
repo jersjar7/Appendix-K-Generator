@@ -16,35 +16,73 @@ export function drawTitle(ctx, text, w, y = 30) {
   ctx.restore();
 }
 
-// Vertical legend of discrete bands. `legend` = {bands:[{from,to,color}], label, units}.
-export function drawLegend(ctx, legend, x, y) {
+// Colorbar legend: a continuous stacked bar (lowest value at the bottom) with a
+// single number at every color boundary. `legend` = {bands:[{from,to,color}],
+// lo, hi, label, units}. Placement: anchor (tl/tc/tr/ml/mr/bl/bc/br) + X/Y nudge.
+export function drawLegend(ctx, legend, opts = {}) {
+  const { frameW, frameH, anchor = "tl", offX = 0, offY = 0, fontSize = 16 } = opts;
+  const n = legend.bands.length;
+  const sw = 30;                          // colorbar width
+  const blockH = Math.max(fontSize + 6, 20);
+  const barH = n * blockH;
+  const titleH = fontSize + 12;
+  const pad = 10, gap = 8;
+
+  const labels = [];
+  for (let i = 0; i <= n; i++) labels.push(fmt(legend.lo + (i * (legend.hi - legend.lo)) / n));
+  const title = `${legend.label}${legend.units ? " (" + legend.units + ")" : ""}`;
+
   ctx.save();
-  const sw = 26, sh = 16, font = 13;
-  // background panel so the legend reads over aerial imagery
-  const panelW = 150, panelH = 22 + legend.bands.length * sh + 8;
+  ctx.font = `bold ${fontSize + 1}px Arial, sans-serif`;
+  const titleW = ctx.measureText(title).width;
+  ctx.font = `${fontSize}px Arial, sans-serif`;
+  let maxLabelW = 0;
+  for (const l of labels) maxLabelW = Math.max(maxLabelW, ctx.measureText(l).width);
+
+  const panelW = Math.max(pad + sw + gap + maxLabelW + pad, pad + titleW + pad);
+  const panelH = pad + titleH + barH + pad + fontSize / 2;
+
+  // anchor → panel top-left within the frame, then apply the nudge
+  const M = 18;
+  const ax = { l: M, c: (frameW - panelW) / 2, r: frameW - panelW - M };
+  const ay = { t: M, m: (frameH - panelH) / 2, b: frameH - panelH - M };
+  const hx = anchor[1] === "c" ? "c" : anchor[1]; // tc/bc → center; ml/mr handled below
+  let px, py;
+  if (anchor === "ml") { px = M; py = ay.m; }
+  else if (anchor === "mr") { px = ax.r; py = ay.m; }
+  else { px = ax[anchor[1]]; py = ay[anchor[0]]; }
+  px += offX; py += offY;
+
+  // panel
   ctx.fillStyle = "rgba(255,255,255,0.82)";
-  ctx.strokeStyle = "rgba(0,0,0,0.2)";
-  roundRect(ctx, x - 8, y - 18, panelW, panelH, 6);
+  ctx.strokeStyle = "rgba(0,0,0,0.22)";
+  roundRect(ctx, px, py, panelW, panelH, 7);
   ctx.fill(); ctx.stroke();
-  ctx.font = `${font}px Arial, sans-serif`;
-  ctx.textBaseline = "middle";
+
   // title
   ctx.fillStyle = "#111";
-  ctx.font = `bold ${font}px Arial, sans-serif`;
-  ctx.textAlign = "left";
-  ctx.fillText(`${legend.label}${legend.units ? " (" + legend.units + ")" : ""}`, x, y);
-  ctx.font = `${font}px Arial, sans-serif`;
-  let yy = y + 16;
-  // draw high→low so the legend reads top=high
-  const bands = [...legend.bands].reverse();
-  for (const b of bands) {
-    ctx.fillStyle = b.color;
-    ctx.fillRect(x, yy, sw, sh);
-    ctx.strokeStyle = "rgba(0,0,0,0.25)";
-    ctx.strokeRect(x + 0.5, yy + 0.5, sw, sh);
-    ctx.fillStyle = "#111";
-    ctx.fillText(`${fmt(b.from)} – ${fmt(b.to)}`, x + sw + 8, yy + sh / 2);
-    yy += sh;
+  ctx.font = `bold ${fontSize + 1}px Arial, sans-serif`;
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText(title, px + pad, py + pad);
+
+  // colorbar (lowest band at the bottom)
+  const barX = px + pad, barTop = py + pad + titleH, barBottom = barTop + barH;
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = legend.bands[i].color;
+    ctx.fillRect(barX, barBottom - (i + 1) * blockH, sw, blockH);
+  }
+  ctx.strokeStyle = "rgba(0,0,0,0.5)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX + 0.5, barTop + 0.5, sw, barH);
+
+  // one number per boundary, aligned to the boundary line
+  ctx.fillStyle = "#111";
+  ctx.font = `${fontSize}px Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+  for (let i = 0; i <= n; i++) {
+    const y = barBottom - i * blockH;
+    ctx.beginPath(); ctx.moveTo(barX + sw, y); ctx.lineTo(barX + sw + 4, y); ctx.stroke();
+    ctx.fillText(labels[i], barX + sw + gap, y);
   }
   ctx.restore();
 }
