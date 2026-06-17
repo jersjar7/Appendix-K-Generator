@@ -12,6 +12,7 @@ let geom = null, datasets = null, dFile = null, ready = false;
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
 let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
 const PAN_STEP = 30;     // screen px per pan click (frame coords) — small for fine control
+const ZOOM_STEP = 1.08;  // zoom factor per click — small for fine control
 
 (async () => { await h5wasm.ready; ready = true; })();
 
@@ -157,8 +158,8 @@ $("rot").addEventListener("change", () => setRot(parseFloat($("rot").value) || 0
 
 // ---- zoom + pan (panel-only) ----
 const rerender = () => scene && render();
-$("zoomIn").addEventListener("click", () => { zoom *= 1.25; rerender(); });
-$("zoomOut").addEventListener("click", () => { zoom /= 1.25; rerender(); });
+$("zoomIn").addEventListener("click", () => { zoom *= ZOOM_STEP; rerender(); });
+$("zoomOut").addEventListener("click", () => { zoom /= ZOOM_STEP; rerender(); });
 $("panL").addEventListener("click", () => { panX -= PAN_STEP; rerender(); });
 $("panR").addEventListener("click", () => { panX += PAN_STEP; rerender(); });
 $("panU").addEventListener("click", () => { panY -= PAN_STEP; rerender(); });
