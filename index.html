@@ -65,34 +65,33 @@
       <div id="customize" hidden>
       <details class="group">
         <summary><span class="num">2</span> Frame &amp; basemap</summary>
-        <label>Orientation
+        <label>Frame orientation
           <select id="orientation">
             <option value="landscape">Landscape (11 × 8.5)</option>
             <option value="portrait">Portrait (8.5 × 11)</option>
           </select>
         </label>
-        <label>Basemap
-          <select id="basemap">
-            <option value="esri">Esri World Imagery</option>
-            <option value="usgs">USGS Imagery (no license)</option>
-            <option value="none">None</option>
-          </select>
-        </label>
-        <div class="rotate">
-          <span>Rotate</span>
+
+        <div class="subhead">Basemap</div>
+        <p class="hint tiny">Esri World Imagery. Rotate, zoom and pan move the aerial and the result together.</p>
+
+        <div class="ctrl-row">
+          <span class="ctrl-lbl">Rotate</span>
           <button id="rotCCW" title="Rotate 90° counter-clockwise">⟲ 90°</button>
           <button id="rotCW" title="Rotate 90° clockwise">⟳ 90°</button>
           <label class="inline">angle <input id="rot" type="number" value="0" step="5" /> °</label>
         </div>
-        <div class="viewnav">
-          <div class="zoomrow">
-            <span>Zoom</span>
-            <button id="zoomIn" title="Zoom in">＋</button>
-            <button id="zoomOut" title="Zoom out">－</button>
-            <span class="sep">Pan</span>
-            <button id="viewReset" class="reset" title="Reset zoom, pan and rotation">Reset view</button>
-          </div>
-          <div class="padgrid">
+
+        <div class="ctrl-row">
+          <span class="ctrl-lbl">Zoom</span>
+          <button id="zoomIn" title="Zoom in">＋</button>
+          <button id="zoomOut" title="Zoom out">－</button>
+          <button id="viewReset" class="reset" title="Reset zoom, pan and rotation">Reset view</button>
+        </div>
+
+        <div class="pan-block">
+          <span class="ctrl-lbl">Pan</span>
+          <div class="dpad">
             <button id="panU" title="Pan up">▲</button>
             <button id="panL" title="Pan left">◀</button>
             <button id="panD" title="Pan down">▼</button>

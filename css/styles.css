@@ -51,19 +51,18 @@ button { font: inherit; padding: 8px 14px; border-radius: 7px; border: 1px solid
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 button.ghost { background: #eef2f7; }
 button:disabled { opacity: 0.5; cursor: default; }
-.rotate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.84rem; color: #41506a; }
-.rotate button { padding: 6px 9px; }
-.viewnav { font-size: 0.84rem; color: #41506a; }
-.zoomrow { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-.zoomrow .sep { margin-left: auto; }
-.zoomrow button { padding: 5px 10px; font-weight: 600; }
-.zoomrow .reset { font-weight: 400; }
-.padgrid { display: grid; grid-template-columns: repeat(3, 38px); grid-auto-rows: 32px; gap: 4px; justify-content: start; }
-.padgrid button { padding: 0; }
-#panU { grid-column: 2; grid-row: 1; }
-#panL { grid-column: 1; grid-row: 2; }
-#panD { grid-column: 2; grid-row: 2; }
-#panR { grid-column: 3; grid-row: 2; }
+.subhead { font-weight: 700; font-size: 0.82rem; color: #2a3650; margin: 12px 0 2px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ctrl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.84rem; color: #41506a; }
+.ctrl-row button { padding: 6px 10px; }
+.ctrl-lbl { width: 48px; flex: none; color: #41506a; }
+.ctrl-row .reset { margin-left: auto; }
+.pan-block { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; }
+.dpad { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 30px); gap: 4px; }
+.dpad button { padding: 0; font-weight: 600; }
+#panU { grid-area: 1 / 2; }
+#panL { grid-area: 2 / 1; }
+#panR { grid-area: 2 / 3; }
+#panD { grid-area: 3 / 2; }
 
 .status { font-size: 0.84rem; color: #41506a; }
 .status div { padding: 1px 0; }
