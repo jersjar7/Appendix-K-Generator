@@ -86,7 +86,10 @@ async function generate() {
   // wet-data range for auto-scaled params
   let lo = Infinity, hi = -Infinity;
   for (const v of values) { if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; } }
-  const opts = def.range ? { min: def.range[0], max: def.range[1] } : { min: 0, max: niceMax(hi) };
+  const autoMax = niceMax(hi);
+  const opts = def.range
+    ? { min: def.range[0], max: def.range[1] }
+    : { min: 0, max: autoMax, interval: niceStep(autoMax / 12) }; // ~12 bands for auto-ranged params
 
   fillMesh(ctx, sx, sy, geom.tris, values, makeColorFn(paramName, opts));
 
@@ -111,4 +114,9 @@ function niceMax(v) {
   if (!isFinite(v) || v <= 0) return 1;
   const pow = Math.pow(10, Math.floor(Math.log10(v)));
   return [1, 2, 5, 10].map((m) => m * pow).find((n) => n >= v) || 10 * pow;
+}
+function niceStep(v) {
+  if (!isFinite(v) || v <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  return [1, 2, 2.5, 5, 10].map((m) => m * pow).reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
 }

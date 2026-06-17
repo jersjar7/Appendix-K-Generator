@@ -77,8 +77,16 @@ vector. **No user naming convention required** beyond sensible SMS dataset names
 
 ## Status
 
-Architecture decided (web app). Input contract locked (two XMDF `.h5` per mesh).
-Proof-of-concept shear render done offline (Python) validating data + CRS +
-node-index alignment across all exports. **Not yet built** — ready to scaffold
-the client-side app and reproduce one figure (2-year shear over Esri aerial)
-end-to-end first.
+**Basic version working.** Drop the two `.h5` files → pick run + parameter +
+basemap → Generate a georeferenced figure (contours over a faint Esri/USGS
+aerial, FHWA-style legend, title, north arrow, scale bar) → Download PNG. Fully
+client-side; libraries vendored (no CDN). Verified end-to-end with Playwright on
+the real Existing exports (2-year / 100-year shear, velocity).
+
+Implemented: `js/{h5,geo,ramps,contour,render,tiles}.js`, `js/app.js`,
+`index.html`, `css/styles.css`. Tests: `test/read.mjs` (node, 9/9).
+
+Next (deferred — "customization comes later"): exact FHWA ramp RGBs; per-figure
+range/interval/legend tuning; flow arrows from the velocity vector; station
+labels; batch export of all runs×params; Word/PDF assembly; multi-mesh
+(Existing + Proposed) in one session; committed Playwright UI test + deploy.
