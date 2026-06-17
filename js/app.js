@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 let geom = null, datasets = null, dFile = null, ready = false;
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
 let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
-const PAN_STEP = 120;    // screen px per pan click (frame coords)
+const PAN_STEP = 30;     // screen px per pan click (frame coords) — small for fine control
 
 (async () => { await h5wasm.ready; ready = true; })();
 
