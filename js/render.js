@@ -15,6 +15,12 @@ export function drawTitle(ctx, text, w, y = 30) {
 export function drawLegend(ctx, legend, x, y) {
   ctx.save();
   const sw = 26, sh = 16, font = 13;
+  // background panel so the legend reads over aerial imagery
+  const panelW = 150, panelH = 22 + legend.bands.length * sh + 8;
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.strokeStyle = "rgba(0,0,0,0.2)";
+  roundRect(ctx, x - 8, y - 18, panelW, panelH, 6);
+  ctx.fill(); ctx.stroke();
   ctx.font = `${font}px Arial, sans-serif`;
   ctx.textBaseline = "middle";
   // title
@@ -38,6 +44,16 @@ export function drawLegend(ctx, legend, x, y) {
   ctx.restore();
 }
 const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v % 1) < 1e-9 ? v.toFixed(0) : v.toFixed(1));
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
 
 export function drawNorthArrow(ctx, x, y, size = 34) {
   ctx.save();

@@ -4,6 +4,7 @@ import { toLonLat, lonLatToMerc } from "./geo.js";
 import { makeColorFn, legendBands, paramDef } from "./ramps.js";
 import { fitToScreen, fillMesh } from "./contour.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js";
+import { drawBasemap, ESRI_WORLD_IMAGERY, USGS_IMAGERY } from "./tiles.js";
 
 const $ = (id) => document.getElementById(id);
 const PAD = 56;
@@ -55,11 +56,13 @@ function populateParams() {
 }
 $("run").addEventListener("change", populateParams);
 
-$("generate").addEventListener("click", () => {
-  try { generate(); } catch (err) { msg(err.message, "err"); console.error(err); }
+$("generate").addEventListener("click", async () => {
+  $("generate").disabled = true;
+  try { await generate(); } catch (err) { msg(err.message, "err"); console.error(err); }
+  finally { $("generate").disabled = false; }
 });
 
-function generate() {
+async function generate() {
   const run = datasets.runs[+$("run").value];
   const paramName = $("param").value;
   const def = paramDef(paramName);
@@ -73,6 +76,13 @@ function generate() {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
 
   const { sx, sy, fit } = fitToScreen(mx, my, W, H, PAD);
+
+  // faint aerial basemap underlay (best-effort; figure still renders if offline)
+  const bm = $("basemap").value;
+  if (bm !== "none") {
+    await drawBasemap(ctx, fit, { url: bm === "usgs" ? USGS_IMAGERY : ESRI_WORLD_IMAGERY });
+  }
+
   // wet-data range for auto-scaled params
   let lo = Infinity, hi = -Infinity;
   for (const v of values) { if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; } }

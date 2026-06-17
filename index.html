@@ -28,6 +28,13 @@
       <div class="row">
         <label>Run <select id="run"></select></label>
         <label>Parameter <select id="param"></select></label>
+        <label>Basemap
+          <select id="basemap">
+            <option value="esri">Esri World Imagery</option>
+            <option value="usgs">USGS Imagery (no license)</option>
+            <option value="none">None</option>
+          </select>
+        </label>
         <button id="generate" class="primary" disabled>Generate figure</button>
         <button id="download" class="ghost" disabled>Download PNG</button>
       </div>
