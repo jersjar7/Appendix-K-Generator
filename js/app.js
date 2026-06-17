@@ -110,7 +110,13 @@ async function render() {
 
   // upright overlays with subtle panels
   drawTitle(ctx, scene.title, frame.w);
-  drawLegend(ctx, legendBands(scene.paramName, scene.opts), 30, 78);
+  drawLegend(ctx, legendBands(scene.paramName, scene.opts), {
+    frameW: frame.w, frameH: frame.h,
+    anchor: $("legendPos").value,
+    offX: parseFloat($("legendX").value) || 0,
+    offY: parseFloat($("legendY").value) || 0,
+    fontSize: parseFloat($("legendFont").value) || 16,
+  });
   drawNorthArrow(ctx, frame.w - 46, frame.h - 74, view.rotRad);
   drawScaleBar(ctx, 70, frame.h - 36, ftPerPixel(view, scene.latRad));
 
@@ -123,9 +129,11 @@ async function render() {
   };
 }
 
-// ---- orientation + rotation controls ----
+// ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
 $("basemap").addEventListener("change", () => scene && render());
+for (const id of ["legendPos", "legendX", "legendY", "legendFont"])
+  $(id).addEventListener("input", () => scene && render());
 function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotDeg; scene && render(); }
 $("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
 $("rotCW").addEventListener("click", () => setRot(rotDeg + 90));
