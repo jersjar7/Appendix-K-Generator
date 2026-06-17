@@ -10,7 +10,8 @@ import { drawBasemap, ESRI_WORLD_IMAGERY, USGS_IMAGERY } from "./tiles.js";
 const $ = (id) => document.getElementById(id);
 let geom = null, datasets = null, dFile = null, ready = false;
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
-let rotDeg = 0;
+let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
+const PAN_STEP = 120;    // screen px per pan click (frame coords)
 
 (async () => { await h5wasm.ready; ready = true; })();
 
@@ -89,7 +90,7 @@ async function render() {
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
   const cv = $("figure"); cv.width = frame.w; cv.height = frame.h;
   const ctx = cv.getContext("2d");
-  const view = makeView(scene.bbox, { w: frame.w, h: frame.h, rotDeg });
+  const view = makeView(scene.bbox, { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
 
   // neutral backdrop (only visible if a tile fails); full-bleed otherwise
   ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
@@ -100,9 +101,9 @@ async function render() {
   // fade the aerial so contours read on top
   if (bm !== "none") { ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h); }
 
-  // contours, rotated with the map
+  // contours, rotated with the map (shares the panned origin)
   ctx.save();
-  ctx.translate(frame.w / 2, frame.h / 2); ctx.rotate(view.rotRad);
+  ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
   const N = scene.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
   for (let i = 0; i < N; i++) { const p = view.toLocal(scene.mx[i], scene.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
   fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, scene.opts));
@@ -147,6 +148,16 @@ function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotD
 $("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
 $("rotCW").addEventListener("click", () => setRot(rotDeg + 90));
 $("rot").addEventListener("change", () => setRot(parseFloat($("rot").value) || 0));
+
+// ---- zoom + pan (panel-only) ----
+const rerender = () => scene && render();
+$("zoomIn").addEventListener("click", () => { zoom *= 1.25; rerender(); });
+$("zoomOut").addEventListener("click", () => { zoom /= 1.25; rerender(); });
+$("panL").addEventListener("click", () => { panX -= PAN_STEP; rerender(); });
+$("panR").addEventListener("click", () => { panX += PAN_STEP; rerender(); });
+$("panU").addEventListener("click", () => { panY -= PAN_STEP; rerender(); });
+$("panD").addEventListener("click", () => { panY += PAN_STEP; rerender(); });
+$("viewReset").addEventListener("click", () => { zoom = 1; panX = 0; panY = 0; rotDeg = 0; $("rot").value = 0; rerender(); });
 
 function niceMax(v) {
   if (!isFinite(v) || v <= 0) return 1;
