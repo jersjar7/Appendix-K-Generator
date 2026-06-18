@@ -128,12 +128,13 @@ async function generate() {
   for (let i = 0; i < mx.length; i++) { if (mx[i] < x0) x0 = mx[i]; if (mx[i] > x1) x1 = mx[i]; if (my[i] < y0) y0 = my[i]; if (my[i] > y1) y1 = my[i]; }
   let lo = Infinity, hi = -Infinity;
   for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const autoMax = niceMax(hi);
-  const opts = def.range ? { min: def.range[0], max: def.range[1] }
-    : { min: 0, max: autoMax, interval: niceStep(autoMax / 12) };
+  const range = def.range ? { min: def.range[0], max: def.range[1] } : { min: 0, max: niceMax(hi) };
+  // seed the "Intervals" control with the smart default for this parameter
+  const defInterval = def.range ? def.interval : niceStep((range.max - range.min) / 12);
+  $("legendIntervals").value = Math.max(2, Math.round((range.max - range.min) / defInterval));
 
   scene = {
-    mx, my, tris: geom.tris, values, def, paramName, opts,
+    mx, my, tris: geom.tris, values, def, paramName, range,
     bbox: { x0, x1, y0, y1 }, latRad: (lat.reduce((a, b) => a + b, 0) / lat.length) * Math.PI / 180,
     title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
     fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
@@ -164,12 +165,16 @@ async function render() {
   // fade the aerial so contours read on top
   ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h);
 
+  // legend/contour classification: user-set number of intervals drives both
+  const count = Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || 12));
+  const o = { min: scene.range.min, max: scene.range.max, interval: (scene.range.max - scene.range.min) / count };
+
   // contours, rotated with the map (shares the panned origin)
   ctx.save();
   ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
   const N = scene.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
   for (let i = 0; i < N; i++) { const p = view.toLocal(scene.mx[i], scene.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
-  fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, scene.opts));
+  fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, o));
   drawOverlays(ctx, overlays, view); // shapefile overlays ride the same transform
   ctx.restore();
 
@@ -182,7 +187,7 @@ async function render() {
   drawTitle(ctx, scene.title, {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
-  drawLegend(ctx, legendBands(scene.paramName, scene.opts), {
+  drawLegend(ctx, legendBands(scene.paramName, o), {
     ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
   });
   drawNorthArrow(ctx, {
@@ -205,7 +210,7 @@ async function render() {
 // ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
 for (const id of [
-  "legendPos", "legendX", "legendY", "legendFont",
+  "legendPos", "legendX", "legendY", "legendFont", "legendIntervals",
   "titlePos", "titleX", "titleY", "titleFont",
   "naPos", "naX", "naY", "naSize",
   "sbPos", "sbX", "sbY", "sbSize",
