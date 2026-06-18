@@ -18,18 +18,19 @@ export const RAMP_OPTIONS = [
   ["waterSurface", "Water Surface"], ["froude", "Froude"], ["dvProduct", "DV Product"], ["surcharge", "Surcharge"],
 ];
 
-// Map a SMS parameter dataset name → display config (each gets its SMS-default ramp).
+// Map a SMS parameter dataset name → display config (each gets its SMS-default
+// ramp). Ranges always auto-scale to the data as it comes from SMS.
 const PARAM_DEFS = [
-  { match: /B_?Stress/i,  key: "shear",    label: "Shear",          units: "lb/ft²",  ramp: "shear",        range: [0, 8],   interval: 0.5 },
-  { match: /Vel_?Mag/i,   key: "velocity", label: "Velocity",       units: "ft/s",    ramp: "velocity",     range: null,     interval: 0.5 },
-  { match: /Water_?Depth/i, key: "depth",  label: "Water Depth",    units: "ft",      ramp: "depth",        range: null,     interval: 0.5 },
-  { match: /Water_?Elev/i, key: "wse",     label: "Water Surface",  units: "ft",      ramp: "waterSurface", range: null,     interval: 0.5 },
-  { match: /Froude/i,     key: "froude",   label: "Froude",         units: "",        ramp: "froude",       range: [0, 1.5], interval: 0.1 },
+  { match: /B_?Stress/i,  key: "shear",    label: "Shear",          units: "lb/ft²",  ramp: "shear" },
+  { match: /Vel_?Mag/i,   key: "velocity", label: "Velocity",       units: "ft/s",    ramp: "velocity" },
+  { match: /Water_?Depth/i, key: "depth",  label: "Water Depth",    units: "ft",      ramp: "depth" },
+  { match: /Water_?Elev/i, key: "wse",     label: "Water Surface",  units: "ft",      ramp: "waterSurface" },
+  { match: /Froude/i,     key: "froude",   label: "Froude",         units: "",        ramp: "froude" },
 ];
 
 export function paramDef(datasetName) {
   return PARAM_DEFS.find((d) => d.match.test(datasetName)) ||
-    { key: "scalar", label: datasetName, units: "", ramp: "velocity", range: null, interval: null };
+    { key: "scalar", label: datasetName, units: "", ramp: "velocity" };
 }
 
 // Interpolate a ramp at t∈[0,1] → [r,g,b].

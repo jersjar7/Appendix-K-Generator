@@ -128,10 +128,10 @@ async function generate() {
   for (let i = 0; i < mx.length; i++) { if (mx[i] < x0) x0 = mx[i]; if (mx[i] > x1) x1 = mx[i]; if (my[i] < y0) y0 = my[i]; if (my[i] > y1) y1 = my[i]; }
   let lo = Infinity, hi = -Infinity;
   for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const range = def.range ? { min: def.range[0], max: def.range[1] } : { min: 0, max: niceMax(hi) };
-  // seed the "Intervals" control with the smart default for this parameter
-  const defInterval = def.range ? def.interval : niceStep((range.max - range.min) / 12);
-  $("legendIntervals").value = Math.max(2, Math.round((range.max - range.min) / defInterval));
+  // auto-scale to the data as it comes from SMS (nice rounded bounds for a clean legend)
+  const nb = niceBounds(lo, hi);
+  const range = { min: nb.min, max: nb.max };
+  $("legendIntervals").value = Math.max(2, Math.round((nb.max - nb.min) / nb.step));
   $("legendRamp").value = def.ramp; // SMS-default ramp for this parameter (user can change)
 
   scene = {
@@ -256,4 +256,12 @@ function niceStep(v) {
   if (!isFinite(v) || v <= 0) return 1;
   const pow = Math.pow(10, Math.floor(Math.log10(v)));
   return [1, 2, 2.5, 5, 10].map((m) => m * pow).reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+}
+// Data-driven legend bounds: floor/ceil the data range to a nice step (uses the
+// real data min, so e.g. Water Surface starts ~55 ft, not 0).
+function niceBounds(lo, hi) {
+  if (!isFinite(lo)) lo = 0;
+  if (!isFinite(hi) || hi <= lo) hi = lo + 1;
+  const step = niceStep((hi - lo) / 10) || 1;
+  return { min: Math.floor(lo / step) * step, max: Math.ceil(hi / step) * step, step };
 }
