@@ -59,9 +59,6 @@
         <input id="files" type="file" accept=".h5" multiple />
         <div id="fileStatus" class="status"></div>
         <div id="dataSelectors" hidden>
-          <label>Run <select id="run"></select></label>
-          <label>Parameter <select id="param"></select></label>
-
           <div class="subhead">Overlays (optional)
             <span class="infotip">
               <button type="button" class="info-i" aria-label="About overlays">i</button>
@@ -70,6 +67,12 @@
           </div>
           <input id="overlayFiles" type="file" accept=".zip" multiple />
           <ul id="overlayList" class="overlay-list"></ul>
+
+          <hr class="divider" />
+
+          <div class="subhead nb">Result to plot</div>
+          <label>Run <select id="run"></select></label>
+          <label>Parameter <select id="param"></select></label>
         </div>
       </details>
 

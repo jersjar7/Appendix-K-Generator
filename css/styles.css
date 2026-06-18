@@ -76,6 +76,8 @@ button.primary { background: var(--accent); color: #fff; border-color: var(--acc
 button.ghost { background: #eef2f7; }
 button:disabled { opacity: 0.5; cursor: default; }
 .subhead { font-weight: 700; font-size: 0.82rem; color: #2a3650; margin: 12px 0 2px; padding-top: 10px; border-top: 1px solid var(--line); }
+.subhead.nb { border-top: none; padding-top: 0; margin-top: 0; }
+hr.divider { border: none; border-top: 2px solid var(--line); margin: 16px 0 12px; }
 .ctrl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.84rem; color: #41506a; }
 .ctrl-row button { padding: 6px 10px; }
 .ctrl-lbl { width: 48px; flex: none; color: #41506a; }
