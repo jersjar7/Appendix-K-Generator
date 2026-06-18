@@ -103,17 +103,19 @@ export function drawNorthArrow(ctx, o) {
 
   ctx.translate(cx, cy);
   ctx.rotate(rotRad);
-  const r = radius;
+  // glyph (N + needle) is laid out symmetric about y=0 — its long axis spans
+  // [-A, +A], so it rotates about its own middle and stays clear of the rim.
+  const r = radius, A = 0.58 * r, fN = Math.round(r * 0.3);
   ctx.fillStyle = "#111";
   ctx.beginPath();                                   // needle points north (up)
-  ctx.moveTo(0, -r * 0.6);
-  ctx.lineTo(r * 0.22, r * 0.34);
-  ctx.lineTo(0, r * 0.16);
-  ctx.lineTo(-r * 0.22, r * 0.34);
+  ctx.moveTo(0, -0.18 * r);                          // tip (just below the N)
+  ctx.lineTo(0.2 * r, A);                            // base right
+  ctx.lineTo(0, 0.32 * r);                           // notch
+  ctx.lineTo(-0.2 * r, A);                           // base left
   ctx.closePath(); ctx.fill();
-  ctx.font = `bold ${Math.round(r * 0.34)}px Arial, sans-serif`;
+  ctx.font = `bold ${fN}px Arial, sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("N", 0, -r * 0.78);
+  ctx.fillText("N", 0, -A + fN / 2);                 // N at the top of the axis
   ctx.restore();
 }
 
