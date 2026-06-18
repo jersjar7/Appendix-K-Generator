@@ -105,17 +105,23 @@ export function drawNorthArrow(ctx, o) {
   ctx.rotate(rotRad);
   // glyph (N + needle) is laid out symmetric about y=0 — its long axis spans
   // [-A, +A], so it rotates about its own middle and stays clear of the rim.
-  const r = radius, A = 0.84 * r, fN = Math.round(r * 0.4);
+  // arrow geometry (tip up), with the N tucked just above the tip; then shift
+  // the whole glyph so its vertical extent is symmetric about 0 — i.e. it
+  // rotates about its true middle.
+  const r = radius, fN = Math.round(r * 0.4), halfN = fN * 0.45, gap = 0.05 * r;
+  const tip = -0.28 * r, base = 0.84 * r, notch = 0.42 * r, halfW = 0.27 * r;
+  const nCenter = tip - gap - halfN;                 // N just above the tip
+  const dy = -((nCenter - halfN) + base) / 2;        // recenter on the glyph's middle
   ctx.fillStyle = "#111";
   ctx.beginPath();                                   // needle points north (up)
-  ctx.moveTo(0, -0.28 * r);                          // tip (just below the N)
-  ctx.lineTo(0.27 * r, A);                           // base right
-  ctx.lineTo(0, 0.42 * r);                           // notch
-  ctx.lineTo(-0.27 * r, A);                          // base left
+  ctx.moveTo(0, tip + dy);
+  ctx.lineTo(halfW, base + dy);
+  ctx.lineTo(0, notch + dy);
+  ctx.lineTo(-halfW, base + dy);
   ctx.closePath(); ctx.fill();
   ctx.font = `bold ${fN}px Arial, sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("N", 0, -A + fN / 2);                 // N at the top of the axis
+  ctx.fillText("N", 0, nCenter + dy);
   ctx.restore();
 }
 
