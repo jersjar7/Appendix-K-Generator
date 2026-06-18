@@ -132,6 +132,7 @@ async function generate() {
   // seed the "Intervals" control with the smart default for this parameter
   const defInterval = def.range ? def.interval : niceStep((range.max - range.min) / 12);
   $("legendIntervals").value = Math.max(2, Math.round((range.max - range.min) / defInterval));
+  $("legendRamp").value = def.ramp; // SMS-default ramp for this parameter (user can change)
 
   scene = {
     mx, my, tris: geom.tris, values, def, paramName, range,
@@ -167,7 +168,7 @@ async function render() {
 
   // legend/contour classification: user-set number of intervals drives both
   const count = Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || 12));
-  const o = { min: scene.range.min, max: scene.range.max, interval: (scene.range.max - scene.range.min) / count };
+  const o = { min: scene.range.min, max: scene.range.max, interval: (scene.range.max - scene.range.min) / count, ramp: $("legendRamp").value };
 
   // contours, rotated with the map (shares the panned origin)
   ctx.save();
@@ -210,7 +211,7 @@ async function render() {
 // ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
 for (const id of [
-  "legendPos", "legendX", "legendY", "legendFont", "legendIntervals",
+  "legendPos", "legendX", "legendY", "legendFont", "legendIntervals", "legendRamp",
   "titlePos", "titleX", "titleY", "titleFont",
   "naPos", "naX", "naY", "naSize",
   "sbPos", "sbX", "sbY", "sbSize",
