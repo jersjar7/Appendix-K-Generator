@@ -6,7 +6,7 @@
   <title>Appendix K Generator — SRH-2D Result Figures</title>
   <link rel="stylesheet" href="css/styles.css" />
   <script type="importmap">
-  { "imports": { "proj4": "./vendor/proj4.esm.js" } }
+  { "imports": { "proj4": "./vendor/proj4.esm.js", "shpjs": "./vendor/shp.esm.js" } }
   </script>
 </head>
 <body>
@@ -54,6 +54,11 @@
         <div id="dataSelectors" hidden>
           <label>Run <select id="run"></select></label>
           <label>Parameter <select id="param"></select></label>
+
+          <div class="subhead">Overlays (optional)</div>
+          <p class="hint tiny">Draw shapefiles on the figure — stream centerline (arc), stationing (points), boundaries (polygon). In SMS, right-click the coverage → <strong>Export…</strong> → Shapefile; <strong>zip</strong> the parts (.shp/.shx/.dbf/.prj) and drop the .zip here.</p>
+          <input id="overlayFiles" type="file" accept=".zip" multiple />
+          <ul id="overlayList" class="overlay-list"></ul>
         </div>
       </details>
 

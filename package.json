@@ -10,9 +10,12 @@
     "test:ui": "playwright test"
   },
   "devDependencies": {
-    "h5wasm": "^0.7.5",
-    "proj4": "^2.12.1",
     "@playwright/test": "^1.61.0",
-    "canvas": "^3.1.0"
+    "canvas": "^3.1.0",
+    "h5wasm": "^0.7.5",
+    "proj4": "^2.12.1"
+  },
+  "dependencies": {
+    "shpjs": "^6.2.0"
   }
 }
