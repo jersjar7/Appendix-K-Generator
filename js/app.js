@@ -225,6 +225,22 @@ $("panU").addEventListener("click", () => { panY -= PAN_STEP; rerender(); });
 $("panD").addEventListener("click", () => { panY += PAN_STEP; rerender(); });
 $("viewReset").addEventListener("click", () => { zoom = 1; panX = 0; panY = 0; rotDeg = 0; $("rot").value = 0; rerender(); });
 
+// ---- info tooltips: click to pin open, click-away / Esc to close ----
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".info-i");
+  if (btn) {
+    e.preventDefault(); e.stopPropagation();          // don't toggle a parent <summary>
+    const tip = btn.parentElement, isOpen = tip.classList.contains("open");
+    document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
+    if (!isOpen) tip.classList.add("open");
+  } else if (!e.target.closest(".info-pop")) {
+    document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
+});
+
 function niceMax(v) {
   if (!isFinite(v) || v <= 0) return 1;
   const pow = Math.pow(10, Math.floor(Math.log10(v)));
