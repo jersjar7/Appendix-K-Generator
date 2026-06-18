@@ -126,28 +126,43 @@ export function drawNorthArrow(ctx, o) {
 }
 
 // Scale bar in feet. `sizeScale` enlarges the bar + text together.
-export function drawScaleBar(ctx, o) {
-  const { frameW, frameH, anchor = "bl", offX = 0, offY = 0, ftPerPixel, sizeScale = 1.4 } = o;
-  const targetPx = 140 * sizeScale;
-  const targetFt = targetPx * ftPerPixel;
-  const pow = Math.pow(10, Math.floor(Math.log10(targetFt)));
-  const niceFt = [1, 2, 5, 10].map((m) => m * pow).reduce((a, b) => (Math.abs(b - targetFt) < Math.abs(a - targetFt) ? b : a));
-  const barPx = niceFt / ftPerPixel;
-  const font = Math.round(13 * sizeScale), pad = 12 * sizeScale, tick = 6 * sizeScale;
+const niceRound = (v) => {
+  if (!isFinite(v) || v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  return [1, 2, 5, 10].map((m) => m * p).reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+};
 
-  const w = barPx + pad * 2, h = font + tick + 22 * sizeScale;
+// Compartmented scale bar in feet: `segments` equal divisions (alternating
+// black/white) with a round number at each boundary. `sizeScale` scales it all.
+export function drawScaleBar(ctx, o) {
+  const { frameW, frameH, anchor = "bl", offX = 0, offY = 0, ftPerPixel, sizeScale = 1.4, segments = 4 } = o;
+  const segs = Math.max(1, Math.min(8, Math.round(segments)));
+  const unitFt = niceRound((140 * sizeScale * ftPerPixel) / segs); // round per-segment length
+  const totalPx = (unitFt * segs) / ftPerPixel;
+  const segPx = totalPx / segs;
+  const barH = Math.round(7 * sizeScale), font = Math.round(13 * sizeScale);
+  const pad = 12 * sizeScale, tick = 5 * sizeScale, lw = Math.max(1, sizeScale);
+
+  const w = totalPx + pad * 2, h = pad * 0.7 + barH + tick + (font + 4) + (font + 4);
   const [x, y] = anchorBox(anchor, w, h, frameW, frameH, M, offX, offY);
   ctx.save();
   ctx.fillStyle = "rgba(255,255,255,0.82)"; ctx.strokeStyle = "rgba(0,0,0,0.22)";
   roundRect(ctx, x, y, w, h, 6); ctx.fill(); ctx.stroke();
-  const bx = x + pad, by = y + h - pad;
-  ctx.strokeStyle = "#111"; ctx.fillStyle = "#111"; ctx.lineWidth = Math.max(2, sizeScale * 1.6);
-  ctx.beginPath();
-  ctx.moveTo(bx, by); ctx.lineTo(bx + barPx, by);
-  ctx.moveTo(bx, by - tick); ctx.lineTo(bx, by + tick);
-  ctx.moveTo(bx + barPx, by - tick); ctx.lineTo(bx + barPx, by + tick);
-  ctx.stroke();
-  ctx.font = `${font}px Arial, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-  ctx.fillText(`${niceFt.toLocaleString()} ft (U.S. Survey)`, bx + barPx / 2, by - tick - 2);
+
+  const bx = x + pad, by = y + pad * 0.7;
+  ctx.strokeStyle = "#111"; ctx.fillStyle = "#111"; ctx.lineWidth = lw;
+  for (let i = 0; i < segs; i++) {                 // alternating filled compartments
+    if (i % 2 === 0) ctx.fillRect(bx + i * segPx, by, segPx, barH);
+  }
+  ctx.strokeRect(bx + 0.5, by + 0.5, totalPx, barH);
+
+  ctx.font = `${font}px Arial, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  const ty = by + barH;
+  for (let i = 0; i <= segs; i++) {                // ticks + round labels at boundaries
+    const sx = bx + i * segPx;
+    ctx.beginPath(); ctx.moveTo(sx, ty); ctx.lineTo(sx, ty + tick); ctx.stroke();
+    ctx.fillText(String(Math.round(i * unitFt)), sx, ty + tick + 2);
+  }
+  ctx.fillText("ft (U.S. Survey)", bx + totalPx / 2, ty + tick + 2 + font + 4);
   ctx.restore();
 }

@@ -196,7 +196,7 @@ async function render() {
   });
   drawScaleBar(ctx, {
     ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
-    ftPerPixel: ftPerPixel(view, scene.latRad), sizeScale: num("sbSize", 1.4),
+    ftPerPixel: ftPerPixel(view, scene.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
   });
 
   $("download").disabled = false;
@@ -214,7 +214,7 @@ for (const id of [
   "legendPos", "legendX", "legendY", "legendFont", "legendIntervals", "legendRamp",
   "titlePos", "titleX", "titleY", "titleFont",
   "naPos", "naX", "naY", "naSize",
-  "sbPos", "sbX", "sbY", "sbSize",
+  "sbPos", "sbX", "sbY", "sbSize", "sbSegments",
 ]) $(id).addEventListener("input", () => scene && render());
 function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotDeg; scene && render(); }
 $("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
