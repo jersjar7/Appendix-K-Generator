@@ -25,38 +25,49 @@
     </main>
 
     <aside class="controls">
-      <details class="prestep" open>
-        <summary><span class="num">0</span> <span class="prestep-label">Naming convention</span></summary>
-        <div class="prestep-body">Name your SMS simulations starting with <code>EX</code> (Existing) or <code>PR</code> (Proposed) — that's how the app labels each run's condition (and tells the two apart). Without it, titles show the raw simulation name.</div>
-      </details>
+      <div class="prestep">
+        <span class="num">0</span>
+        <span class="prestep-title">Naming convention</span>
+        <span class="infotip">
+          <button type="button" class="info-i" aria-label="About the naming convention">i</button>
+          <span class="info-pop">Name your SMS simulations starting with <code>EX</code> (Existing) or <code>PR</code> (Proposed) — that's how the app labels each run's condition (and tells the two apart). Without it, titles show the raw simulation name.</span>
+        </span>
+      </div>
 
       <details class="group" id="grpData" open>
-        <summary><span class="num">1</span> Data</summary>
-        <p class="hint">You need <strong>two <code>.h5</code> files</strong>, both exported from your <strong>mesh</strong> in SMS:</p>
-        <details class="howto">
-          <summary>How to export them from SMS</summary>
-          <p class="sub-hd">File 1 — mesh geometry</p>
-          <ol class="hint-list">
-            <li><strong>Right-click the mesh</strong> (under <em>Mesh Data</em> in the Project Explorer) → <strong>Export…</strong></li>
-            <li>Set <strong>Save as type</strong> → <strong>XMDF File (*.h5)</strong>, give it a name, and save it anywhere you'll remember.</li>
-          </ol>
-          <p class="sub-hd">File 2 — all datasets</p>
-          <ol class="hint-list">
-            <li><strong>Right-click the mesh</strong> again → <strong>Export Datasets…</strong></li>
-            <li>In the <strong>Select Tree Item</strong> dialog, check <strong>Z</strong> plus the result datasets you want — easiest is to grab them all.</li>
-            <li>Each simulation has <strong>Shear&nbsp;(B_Stress)</strong>, Froude, <strong>Velocity&nbsp;Magnitude</strong>, Velocity&nbsp;(x/y), <strong>Water&nbsp;Depth</strong>, and <strong>Water&nbsp;Elevation</strong>. <em>Froude isn't needed</em> for these figures.</li>
-            <li>Give it a name and save.</li>
-          </ol>
-          <p class="hint tiny">Drop both files below — any order; the app detects which is which.</p>
-        </details>
+        <summary><span class="num">1</span> Data
+          <span class="infotip">
+            <button type="button" class="info-i" aria-label="How to get the data files">i</button>
+            <span class="info-pop">
+              <strong>Two <code>.h5</code> files</strong>, both exported from your <strong>mesh</strong> in SMS:
+              <div class="sub-hd">File 1 — mesh geometry</div>
+              <ol>
+                <li>Right-click the mesh (under <em>Mesh Data</em>) → <strong>Export…</strong></li>
+                <li><strong>Save as type → XMDF File (*.h5)</strong>, name it, save.</li>
+              </ol>
+              <div class="sub-hd">File 2 — all datasets</div>
+              <ol>
+                <li>Right-click the mesh → <strong>Export Datasets…</strong></li>
+                <li>In <strong>Select Tree Item</strong>, check <strong>Z</strong> + the datasets you want (grab all).</li>
+                <li>Datasets: Shear (B_Stress), Froude, Velocity Magnitude, Velocity (x/y), Water Depth, Water Elevation. <em>Froude not needed.</em></li>
+                <li>Name it and save.</li>
+              </ol>
+              Drop both below — any order; the app detects which is which.
+            </span>
+          </span>
+        </summary>
         <input id="files" type="file" accept=".h5" multiple />
         <div id="fileStatus" class="status"></div>
         <div id="dataSelectors" hidden>
           <label>Run <select id="run"></select></label>
           <label>Parameter <select id="param"></select></label>
 
-          <div class="subhead">Overlays (optional)</div>
-          <p class="hint tiny">Draw shapefiles on the figure — stream centerline (arc), stationing (points), boundaries (polygon). In SMS, right-click the coverage → <strong>Export…</strong> → Shapefile; <strong>zip</strong> the parts (.shp/.shx/.dbf/.prj) and drop the .zip here.</p>
+          <div class="subhead">Overlays (optional)
+            <span class="infotip">
+              <button type="button" class="info-i" aria-label="About overlays">i</button>
+              <span class="info-pop">Draw shapefiles on the figure — stream centerline (arc), stationing (points), boundaries (polygon). In SMS, right-click the coverage → <strong>Export…</strong> → Shapefile; <strong>zip</strong> the parts (.shp/.shx/.dbf/.prj) and drop the .zip below.</span>
+            </span>
+          </div>
           <input id="overlayFiles" type="file" accept=".zip" multiple />
           <ul id="overlayList" class="overlay-list"></ul>
         </div>
@@ -77,8 +88,12 @@
           </select>
         </label>
 
-        <div class="subhead">Basemap</div>
-        <p class="hint tiny">Esri World Imagery. Rotate, zoom and pan move the aerial and the result together.</p>
+        <div class="subhead">Basemap
+          <span class="infotip">
+            <button type="button" class="info-i" aria-label="About the basemap controls">i</button>
+            <span class="info-pop">Esri World Imagery. Rotate, zoom and pan move the aerial and the result together.</span>
+          </span>
+        </div>
 
         <div class="ctrl-row">
           <span class="ctrl-lbl">Rotate</span>
