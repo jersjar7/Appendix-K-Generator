@@ -7,7 +7,7 @@ import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
 import shp from "shpjs";
-import { drawOverlays, describe, OVERLAY_PALETTE } from "./overlays.js";
+import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
 
 const $ = (id) => document.getElementById(id);
 let geom = null, datasets = null, dFile = null, ready = false;
@@ -66,7 +66,7 @@ $("overlayFiles").addEventListener("change", async (e) => {
         overlays.push({
           name: (fc.fileName || file.name).replace(/\.zip$/i, "").split("/").pop(),
           geojson: fc, color: OVERLAY_PALETTE[overlays.length % OVERLAY_PALETTE.length],
-          width: 3, hidden: false,
+          width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc),
         });
       }
     } catch (err) { msg(`Could not read ${file.name}: ${err.message}`, "err"); }
@@ -81,17 +81,33 @@ function renderOverlayList() {
   ul.innerHTML = "";
   overlays.forEach((ov, i) => {
     const li = document.createElement("li");
+    li.className = "ov-item";
+    const opts = ['<option value="">No labels</option>']
+      .concat(ov.fields.map((f) => `<option value="${escapeAttr(f)}"${f === ov.labelField ? " selected" : ""}>${escapeHtml(f)}</option>`))
+      .join("");
     li.innerHTML = `
-      <input type="color" value="${ov.color}" title="Color" />
-      <span class="ov-name" title="${ov.name}">${ov.name} <em>(${describe(ov.geojson)})</em></span>
-      <input type="number" class="ov-w" value="${ov.width}" min="1" max="12" step="1" title="Line/point size" />
-      <button class="mini ov-del" title="Remove">✕</button>`;
-    li.querySelector('input[type="color"]').addEventListener("input", (e) => { ov.color = e.target.value; scene && render(); });
+      <div class="ov-row">
+        <input type="checkbox" class="ov-show"${ov.hidden ? "" : " checked"} title="Show / hide" />
+        <input type="color" class="ov-color" value="${ov.color}" title="Color" />
+        <span class="ov-name" title="${escapeAttr(ov.name)}">${escapeHtml(ov.name)} <em>(${describe(ov.geojson)})</em></span>
+        <button class="mini ov-del" title="Remove">✕</button>
+      </div>
+      <div class="ov-row ov-row2">
+        <label class="inline">Size <input type="number" class="ov-w" value="${ov.width}" min="1" max="12" step="1" /></label>
+        <label class="inline grow">Label <select class="ov-label">${opts}</select></label>
+        <label class="inline">Text <input type="number" class="ov-ls" value="${ov.labelSize}" min="8" max="60" step="1" /></label>
+      </div>`;
+    li.querySelector(".ov-show").addEventListener("change", (e) => { ov.hidden = !e.target.checked; scene && render(); });
+    li.querySelector(".ov-color").addEventListener("input", (e) => { ov.color = e.target.value; scene && render(); });
     li.querySelector(".ov-w").addEventListener("input", (e) => { ov.width = parseFloat(e.target.value) || 3; scene && render(); });
+    li.querySelector(".ov-label").addEventListener("change", (e) => { ov.labelField = e.target.value; scene && render(); });
+    li.querySelector(".ov-ls").addEventListener("input", (e) => { ov.labelSize = parseFloat(e.target.value) || 22; scene && render(); });
     li.querySelector(".ov-del").addEventListener("click", () => { overlays.splice(i, 1); renderOverlayList(); scene && render(); });
     ul.appendChild(li);
   });
 }
+function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function escapeAttr(s) { return String(s).replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
 
 // ---- generate: read data + build the cached scene, then render ----
 $("generate").addEventListener("click", async () => {
@@ -156,6 +172,9 @@ async function render() {
   fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, scene.opts));
   drawOverlays(ctx, overlays, view); // shapefile overlays ride the same transform
   ctx.restore();
+
+  // overlay labels: upright in screen space (so they stay readable when rotated)
+  drawOverlayLabels(ctx, overlays, view);
 
   // upright overlays — each placeable + sizable via its own controls
   const num = (id, d) => parseFloat($(id).value) || d;
