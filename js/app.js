@@ -6,10 +6,13 @@ import { fillMesh } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
+import shp from "shpjs";
+import { drawOverlays, describe, OVERLAY_PALETTE } from "./overlays.js";
 
 const $ = (id) => document.getElementById(id);
 let geom = null, datasets = null, dFile = null, ready = false;
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
+let overlays = [];       // [{ name, geojson, color, width, hidden }]
 let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
 const PAN_STEP = 30;     // screen px per pan click (frame coords) — small for fine control
 const ZOOM_STEP = 1.08;  // zoom factor per click — small for fine control
@@ -53,6 +56,42 @@ function populateParams() {
   $("param").innerHTML = scalars.map((p) => `<option value="${p}">${paramDef(p).label}</option>`).join("");
 }
 $("run").addEventListener("change", populateParams);
+
+// ---- overlay shapefiles (.zip) ----
+$("overlayFiles").addEventListener("change", async (e) => {
+  for (const file of e.target.files) {
+    try {
+      const res = await shp(await file.arrayBuffer());     // → GeoJSON (lon/lat)
+      for (const fc of (Array.isArray(res) ? res : [res])) {
+        overlays.push({
+          name: (fc.fileName || file.name).replace(/\.zip$/i, "").split("/").pop(),
+          geojson: fc, color: OVERLAY_PALETTE[overlays.length % OVERLAY_PALETTE.length],
+          width: 3, hidden: false,
+        });
+      }
+    } catch (err) { msg(`Could not read ${file.name}: ${err.message}`, "err"); }
+  }
+  e.target.value = "";
+  renderOverlayList();
+  if (scene) render();
+});
+
+function renderOverlayList() {
+  const ul = $("overlayList");
+  ul.innerHTML = "";
+  overlays.forEach((ov, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <input type="color" value="${ov.color}" title="Color" />
+      <span class="ov-name" title="${ov.name}">${ov.name} <em>(${describe(ov.geojson)})</em></span>
+      <input type="number" class="ov-w" value="${ov.width}" min="1" max="12" step="1" title="Line/point size" />
+      <button class="mini ov-del" title="Remove">✕</button>`;
+    li.querySelector('input[type="color"]').addEventListener("input", (e) => { ov.color = e.target.value; scene && render(); });
+    li.querySelector(".ov-w").addEventListener("input", (e) => { ov.width = parseFloat(e.target.value) || 3; scene && render(); });
+    li.querySelector(".ov-del").addEventListener("click", () => { overlays.splice(i, 1); renderOverlayList(); scene && render(); });
+    ul.appendChild(li);
+  });
+}
 
 // ---- generate: read data + build the cached scene, then render ----
 $("generate").addEventListener("click", async () => {
@@ -115,6 +154,7 @@ async function render() {
   const N = scene.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
   for (let i = 0; i < N; i++) { const p = view.toLocal(scene.mx[i], scene.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
   fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, scene.opts));
+  drawOverlays(ctx, overlays, view); // shapefile overlays ride the same transform
   ctx.restore();
 
   // upright overlays — each placeable + sizable via its own controls
