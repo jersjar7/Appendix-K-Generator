@@ -38,6 +38,7 @@ summary .infotip, .subhead .infotip { margin-left: 6px; }
 .group > summary::before { content: "▸"; display: inline-block; width: 1em; color: var(--accent); transition: transform 0.15s; }
 .group[open] > summary::before { transform: rotate(90deg); }
 .group > summary .num { display: inline-grid; place-items: center; width: 21px; height: 21px; background: var(--accent); color: #fff; border-radius: 50%; font-size: 0.74rem; font-weight: 700; margin-right: 7px; vertical-align: middle; }
+.show-toggle { width: auto; flex: none; margin: 0 5px 0 1px; vertical-align: middle; cursor: pointer; }
 .group > *:not(summary) { margin-bottom: 10px; }
 .group label { display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem; color: #41506a; }
 .group label.inline { flex-direction: row; align-items: center; gap: 6px; }

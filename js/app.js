@@ -182,19 +182,20 @@ async function render() {
   // overlay labels: upright in screen space (so they stay readable when rotated)
   drawOverlayLabels(ctx, overlays, view);
 
-  // upright overlays — each placeable + sizable via its own controls
+  // upright overlays — each placeable + sizable, and individually show/hide-able
   const num = (id, d) => parseFloat($(id).value) || d;
+  const on = (id) => $(id).checked;
   const F = { frameW: frame.w, frameH: frame.h };
-  drawTitle(ctx, scene.title, {
+  if (on("showTitle")) drawTitle(ctx, scene.title, {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
-  drawLegend(ctx, legendBands(scene.paramName, o), {
+  if (on("showLegend")) drawLegend(ctx, legendBands(scene.paramName, o), {
     ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
   });
-  drawNorthArrow(ctx, {
+  if (on("showNorth")) drawNorthArrow(ctx, {
     ...F, anchor: $("naPos").value, offX: num("naX", 0), offY: num("naY", 0), radius: num("naSize", 46), rotRad: view.rotRad,
   });
-  drawScaleBar(ctx, {
+  if (on("showScale")) drawScaleBar(ctx, {
     ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
     ftPerPixel: ftPerPixel(view, scene.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
   });
@@ -245,6 +246,12 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
+});
+
+// ---- per-element show/hide toggles (in each group header) ----
+document.querySelectorAll(".show-toggle").forEach((cb) => {
+  cb.addEventListener("click", (e) => e.stopPropagation());      // don't toggle the <details>
+  cb.addEventListener("change", () => scene && render());
 });
 
 function niceMax(v) {
