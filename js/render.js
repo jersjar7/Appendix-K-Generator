@@ -137,11 +137,12 @@ const niceRound = (v) => {
 export function drawScaleBar(ctx, o) {
   const { frameW, frameH, anchor = "bl", offX = 0, offY = 0, ftPerPixel, sizeScale = 1.4, segments = 4 } = o;
   const segs = Math.max(1, Math.min(8, Math.round(segments)));
-  const unitFt = niceRound((140 * sizeScale * ftPerPixel) / segs); // round per-segment length
+  const VIS = 1.5;                                   // fixed visual scale — text, bar thickness & padding stay constant
+  const unitFt = niceRound((140 * sizeScale * ftPerPixel) / segs); // sizeScale controls only the bar's longitudinal length
   const totalPx = (unitFt * segs) / ftPerPixel;
   const segPx = totalPx / segs;
-  const barH = Math.round(7 * sizeScale), font = Math.round(13 * sizeScale);
-  const pad = 12 * sizeScale, tick = 5 * sizeScale, lw = Math.max(1, sizeScale);
+  const barH = Math.round(7 * VIS), font = Math.round(13 * VIS);
+  const pad = 12 * VIS, tick = 5 * VIS, lw = Math.max(1, VIS);
 
   const w = totalPx + pad * 2, h = pad * 0.7 + barH + tick + (font + 4) + (font + 4);
   const [x, y] = anchorBox(anchor, w, h, frameW, frameH, M, offX, offY);
