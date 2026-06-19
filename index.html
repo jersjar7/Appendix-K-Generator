@@ -256,43 +256,57 @@
 
       <details class="group">
         <summary><span class="num">5</span> <input type="checkbox" class="show-toggle" id="showNorth" checked title="Show on figure" /> North arrow</summary>
-        <label>Position
-          <select id="naPos">
-            <option value="br">Bottom-right</option>
-            <option value="bl">Bottom-left</option>
-            <option value="tr">Top-right</option>
-            <option value="tl">Top-left</option>
-            <option value="bc">Bottom-center</option>
-            <option value="tc">Top-center</option>
-            <option value="ml">Middle-left</option>
-            <option value="mr">Middle-right</option>
-          </select>
-        </label>
-        <div class="row2">
-          <label class="inline">Nudge X <input id="naX" type="number" value="0" step="10" /></label>
-          <label class="inline">Nudge Y <input id="naY" type="number" value="0" step="10" /></label>
+        <div class="block stack">
+          <div class="block-hd">Placement &amp; size</div>
+          <label>Position
+            <select id="naPos">
+              <option value="br">Bottom-right</option>
+              <option value="bl">Bottom-left</option>
+              <option value="tr">Top-right</option>
+              <option value="tl">Top-left</option>
+              <option value="bc">Bottom-center</option>
+              <option value="tc">Top-center</option>
+              <option value="ml">Middle-left</option>
+              <option value="mr">Middle-right</option>
+            </select>
+          </label>
+          <div class="row2 triple">
+            <label class="inline">Nudge X <input id="naX" type="number" value="0" step="10" /></label>
+            <label class="inline">Nudge Y <input id="naY" type="number" value="0" step="10" /></label>
+            <label class="inline">Radius <input id="naSize" type="number" value="50" min="20" max="140" step="2" /></label>
+          </div>
         </div>
-        <label>Size (radius) <input id="naSize" type="number" value="50" min="20" max="140" step="2" /></label>
       </details>
 
       <details class="group">
         <summary><span class="num">6</span> <input type="checkbox" class="show-toggle" id="showScale" checked title="Show on figure" /> Scale bar</summary>
-        <label>Position
-          <select id="sbPos">
-            <option value="bl">Bottom-left</option>
-            <option value="br">Bottom-right</option>
-            <option value="bc">Bottom-center</option>
-            <option value="tl">Top-left</option>
-            <option value="tr">Top-right</option>
-          </select>
-        </label>
-        <div class="row2">
-          <label class="inline">Nudge X <input id="sbX" type="number" value="0" step="10" /></label>
-          <label class="inline">Nudge Y <input id="sbY" type="number" value="0" step="10" /></label>
+        <div class="block stack">
+          <div class="block-hd">Placement</div>
+          <label>Position
+            <select id="sbPos">
+              <option value="bl">Bottom-left</option>
+              <option value="br">Bottom-right</option>
+              <option value="bc">Bottom-center</option>
+              <option value="tl">Top-left</option>
+              <option value="tr">Top-right</option>
+            </select>
+          </label>
+          <div class="row2">
+            <label class="inline">Nudge X <input id="sbX" type="number" value="0" step="10" /></label>
+            <label class="inline">Nudge Y <input id="sbY" type="number" value="0" step="10" /></label>
+          </div>
         </div>
-        <div class="row2">
-          <label class="inline">Bar length <input id="sbSize" type="number" value="1.6" min="0.6" max="4" step="0.1" /></label>
-          <label class="inline">Compartments <input id="sbSegments" type="number" value="4" min="1" max="8" step="1" /></label>
+        <div class="block stack">
+          <div class="block-hd">Bar
+            <span class="infotip">
+              <button type="button" class="info-i" aria-label="About the scale bar">i</button>
+              <span class="info-pop"><strong>Bar length</strong> stretches the bar (the rounded distance updates with it); <strong>Compartments</strong> sets the number of alternating segments. The text size stays fixed.</span>
+            </span>
+          </div>
+          <div class="row2">
+            <label class="inline">Bar length <input id="sbSize" type="number" value="1.6" min="0.6" max="4" step="0.1" /></label>
+            <label class="inline">Compartments <input id="sbSegments" type="number" value="4" min="1" max="8" step="1" /></label>
+          </div>
         </div>
       </details>
 
