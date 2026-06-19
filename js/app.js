@@ -390,23 +390,33 @@ async function previewReport() {
     if (!built) return;
     const sz = figSizeIn(+$("rpPerPage").value);
     const pg2 = pageDims();
+    // Render each preview page as an exact scaled replica of the Word page:
+    // one px-per-inch scale drives page size, the 0.75in margins, and figures.
+    const PXW = pg2.landscape ? 900 : 680;          // page width on screen (px)
+    const scale = PXW / pg2.wIn;                     // px per inch
+    const margin = 0.75 * scale;                     // same 0.75in margin as the docx
     const host = $("previewHost"); host.innerHTML = "";
     built.pages.forEach((pg, i) => {
+      const wrap = document.createElement("div"); wrap.className = "pv-pagewrap";
       const el = document.createElement("div"); el.className = "pv-page";
-      el.style.aspectRatio = `${pg2.wIn} / ${pg2.hIn}`;       // page follows step-2 orientation
-      el.style.width = pg2.landscape ? "min(860px, 94vw)" : "min(640px, 92vw)";
+      el.style.width = PXW + "px";
+      el.style.height = pg2.hIn * scale + "px";       // exact page, not content-driven
+      el.style.padding = margin + "px";
+      el.style.gap = 0.12 * scale + "px";
       if (pg.heading) { const h = document.createElement("div"); h.className = "pv-heading"; h.textContent = pg.heading; el.appendChild(h); }
       for (const it of pg.items) {
         const fig = document.createElement("div"); fig.className = "pv-fig";
         const img = document.createElement("img"); img.src = it.canvas.toDataURL("image/png");
-        img.style.width = (sz.widthIn / sz.usableW * 100) + "%";
+        img.style.width = sz.widthIn * scale + "px";
+        img.style.height = sz.heightIn * scale + "px";
         fig.appendChild(img);
         if (built.opts.captions) { const cap = document.createElement("div"); cap.className = "pv-cap"; cap.textContent = it.fig.title; fig.appendChild(cap); }
         el.appendChild(fig);
       }
+      wrap.appendChild(el);
       const num = document.createElement("div"); num.className = "pv-num"; num.textContent = `Page ${i + 1} of ${built.pages.length}`;
-      el.appendChild(num);
-      host.appendChild(el);
+      wrap.appendChild(num);                            // label sits below the page, not inside it
+      host.appendChild(wrap);
     });
     $("previewModal").hidden = false;
     msg(`Preview ready: ${built.total} figures on ${built.pages.length} pages.`, "ok");
