@@ -347,11 +347,19 @@ function paginate(rendered, perPage, mode, opts) {
   return pages;
 }
 
+// The Word page follows the step-2 orientation; figures fill the usable area.
+function pageDims() {
+  const landscape = $("orientation").value === "landscape";
+  return landscape ? { wIn: 11, hIn: 8.5, landscape: true } : { wIn: 8.5, hIn: 11, landscape: false };
+}
 function figSizeIn(perPage) {
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
-  const aspect = frame.w / frame.h;
-  const w = Math.min(6.5, (perPage === 2 ? 4.0 : 8.4) * aspect);
-  return { widthIn: w, heightIn: w / aspect };
+  const aspect = frame.w / frame.h;                 // figure aspect == page aspect
+  const pg = pageDims(), m = 0.75;
+  const usableW = pg.wIn - 2 * m, usableH = pg.hIn - 2 * m;
+  const slotH = (usableH - (perPage === 2 ? 0.7 : 0.35)) / perPage; // leave room for caption/heading
+  const w = Math.min(usableW, slotH * aspect);
+  return { widthIn: w, heightIn: w / aspect, usableW };
 }
 
 async function buildPages() {
@@ -381,14 +389,17 @@ async function previewReport() {
     const built = await buildPages();
     if (!built) return;
     const sz = figSizeIn(+$("rpPerPage").value);
+    const pg2 = pageDims();
     const host = $("previewHost"); host.innerHTML = "";
     built.pages.forEach((pg, i) => {
       const el = document.createElement("div"); el.className = "pv-page";
+      el.style.aspectRatio = `${pg2.wIn} / ${pg2.hIn}`;       // page follows step-2 orientation
+      el.style.width = pg2.landscape ? "min(860px, 94vw)" : "min(640px, 92vw)";
       if (pg.heading) { const h = document.createElement("div"); h.className = "pv-heading"; h.textContent = pg.heading; el.appendChild(h); }
       for (const it of pg.items) {
         const fig = document.createElement("div"); fig.className = "pv-fig";
         const img = document.createElement("img"); img.src = it.canvas.toDataURL("image/png");
-        img.style.width = (sz.widthIn / 7 * 100) + "%";
+        img.style.width = (sz.widthIn / sz.usableW * 100) + "%";
         fig.appendChild(img);
         if (built.opts.captions) { const cap = document.createElement("div"); cap.className = "pv-cap"; cap.textContent = it.fig.title; fig.appendChild(cap); }
         el.appendChild(fig);
@@ -413,7 +424,7 @@ async function generateWord() {
       heading: pg.heading,
       figures: pg.items.map((it) => ({ png: pngBytes(it.canvas), caption: built.opts.captions ? it.fig.title : "", widthIn: sz.widthIn, heightIn: sz.heightIn })),
     }));
-    downloadBlob(buildReportDocx(docPages), "Appendix_K_Report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    downloadBlob(buildReportDocx(docPages, { landscape: pageDims().landscape }), "Appendix_K_Report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     msg(`Word report downloaded: ${built.total} figures on ${built.pages.length} pages.`, "ok");
   } catch (e) { msg(e.message, "err"); console.error(e); }
   finally { $("rpWord").disabled = false; }
