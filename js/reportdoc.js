@@ -30,7 +30,7 @@ const captionPara = (t) =>
   `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${esc(t)}</w:t></w:r></w:p>`;
 const pageBreak = () => `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
 
-export function buildReportDocx(pages) {
+export function buildReportDocx(pages, { landscape = false } = {}) {
   const media = [];
   const body = [];
   let n = 0;
@@ -51,7 +51,7 @@ export function buildReportDocx(pages) {
   xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
   xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
   <w:body>${body.join("")}
-    <w:sectPr><w:pgSz w:w="12240" w:h="15840"/>
+    <w:sectPr><w:pgSz w:w="${landscape ? 15840 : 12240}" w:h="${landscape ? 12240 : 15840}"${landscape ? ' w:orient="landscape"' : ""}/>
       <w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/>
     </w:sectPr>
   </w:body>
