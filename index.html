@@ -213,37 +213,45 @@
       </details>
 
       <details class="group">
-        <summary><span class="num">4</span> <input type="checkbox" class="show-toggle" id="showTitle" checked title="Show on figure" /> Title
-          <span class="infotip">
-            <button type="button" class="info-i" aria-label="About the title template">i</button>
-            <span class="info-pop">The title is a <strong>template</strong>. The tokens below are filled in for <em>each</em> figure, so every figure (on screen and in the Word report) gets its own correct, specific title — they're never identical. Edit the text or click a token to insert it; the preview shows the current figure's title.</span>
-          </span>
-        </summary>
-        <label>Title template <input id="titleText" type="text" placeholder="{run} — {parameter} ({units})" /></label>
-        <div class="token-row">
-          <span class="token-lbl">Insert:</span>
-          <button type="button" class="token" data-token="{condition}">condition</button>
-          <button type="button" class="token" data-token="{event}">event</button>
-          <button type="button" class="token" data-token="{parameter}">parameter</button>
-          <button type="button" class="token" data-token="{units}">units</button>
-          <button type="button" class="token" data-token="{run}">run</button>
+        <summary><span class="num">4</span> <input type="checkbox" class="show-toggle" id="showTitle" checked title="Show on figure" /> Title</summary>
+
+        <div class="block stack">
+          <div class="block-hd">Text
+            <span class="infotip">
+              <button type="button" class="info-i" aria-label="About the title template">i</button>
+              <span class="info-pop">The title is a <strong>template</strong>. The tokens below are filled in for <em>each</em> figure, so every figure (on screen and in the Word report) gets its own correct, specific title — they're never identical. Edit the text or click a token to insert it; the preview shows the current figure's title.</span>
+            </span>
+          </div>
+          <label>Title template <input id="titleText" type="text" placeholder="{run} — {parameter} ({units})" /></label>
+          <div class="token-row">
+            <span class="token-lbl">Insert:</span>
+            <button type="button" class="token" data-token="{condition}">condition</button>
+            <button type="button" class="token" data-token="{event}">event</button>
+            <button type="button" class="token" data-token="{parameter}">parameter</button>
+            <button type="button" class="token" data-token="{units}">units</button>
+            <button type="button" class="token" data-token="{run}">run</button>
+          </div>
+          <div class="title-preview">This figure: <span id="titlePreview">—</span></div>
         </div>
-        <div class="title-preview">This figure: <span id="titlePreview">—</span></div>
-        <label>Position
-          <select id="titlePos">
-            <option value="tc">Top-center</option>
-            <option value="tl">Top-left</option>
-            <option value="tr">Top-right</option>
-            <option value="bc">Bottom-center</option>
-            <option value="bl">Bottom-left</option>
-            <option value="br">Bottom-right</option>
-          </select>
-        </label>
-        <div class="row2">
-          <label class="inline">Nudge X <input id="titleX" type="number" value="0" step="10" /></label>
-          <label class="inline">Nudge Y <input id="titleY" type="number" value="0" step="10" /></label>
+
+        <div class="block stack">
+          <div class="block-hd">Placement &amp; size</div>
+          <label>Position
+            <select id="titlePos">
+              <option value="tc">Top-center</option>
+              <option value="tl">Top-left</option>
+              <option value="tr">Top-right</option>
+              <option value="bc">Bottom-center</option>
+              <option value="bl">Bottom-left</option>
+              <option value="br">Bottom-right</option>
+            </select>
+          </label>
+          <div class="row2">
+            <label class="inline">Nudge X <input id="titleX" type="number" value="0" step="10" /></label>
+            <label class="inline">Nudge Y <input id="titleY" type="number" value="0" step="10" /></label>
+          </div>
+          <label class="inline">Font size <input id="titleFont" type="number" value="24" min="10" max="64" step="1" /></label>
         </div>
-        <label>Font size <input id="titleFont" type="number" value="24" min="10" max="64" step="1" /></label>
       </details>
 
       <details class="group">
