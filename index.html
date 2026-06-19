@@ -328,27 +328,35 @@
       <details class="group" id="report" hidden>
         <summary><span class="num">8</span> Report (Word)</summary>
         <p class="hint">Build a Word document of figures — all rendered at the current view &amp; formatting, so every figure shares the same extent and layout.</p>
-        <div class="subhead nb">Parameters <button id="rpSelectAllParams" class="mini" type="button">All</button></div>
-        <div id="rpParams" class="checklist"></div>
-        <div class="subhead">Runs <button id="rpSelectAllRuns" class="mini" type="button">All</button></div>
-        <div id="rpRuns" class="checklist"></div>
-        <hr class="divider" />
-        <label>Organize by
-          <select id="rpOrganize">
-            <option value="condition">By condition (Existing, then Proposed)</option>
-            <option value="comparison">By comparison (Existing &amp; Proposed together)</option>
-            <option value="parameter">By parameter</option>
-            <option value="event">By event</option>
-          </select>
-        </label>
-        <label>Figures per page
-          <select id="rpPerPage">
-            <option value="1">One per page</option>
-            <option value="2">Two per page</option>
-          </select>
-        </label>
-        <label class="chk"><input type="checkbox" id="rpCaption" /> Caption under each figure</label>
-        <label class="chk"><input type="checkbox" id="rpHeadings" checked /> Section headings</label>
+
+        <div class="block">
+          <div class="block-hd">Figures to include</div>
+          <div class="subhead nb">Parameters <button id="rpSelectAllParams" class="mini" type="button">All</button></div>
+          <div id="rpParams" class="checklist"></div>
+          <div class="subhead">Runs <button id="rpSelectAllRuns" class="mini" type="button">All</button></div>
+          <div id="rpRuns" class="checklist"></div>
+        </div>
+
+        <div class="block stack">
+          <div class="block-hd">Layout</div>
+          <label>Organize by
+            <select id="rpOrganize">
+              <option value="condition">By condition (Existing, then Proposed)</option>
+              <option value="comparison">By comparison (Existing &amp; Proposed together)</option>
+              <option value="parameter">By parameter</option>
+              <option value="event">By event</option>
+            </select>
+          </label>
+          <label>Figures per page
+            <select id="rpPerPage">
+              <option value="1">One per page</option>
+              <option value="2">Two per page</option>
+            </select>
+          </label>
+          <label class="chk"><input type="checkbox" id="rpCaption" /> Caption under each figure</label>
+          <label class="chk"><input type="checkbox" id="rpHeadings" checked /> Section headings</label>
+        </div>
+
         <div class="row report-actions">
           <button id="rpPreview" class="ghost" type="button">Preview</button>
           <button id="rpWord" class="primary" type="button">Generate Word document</button>
