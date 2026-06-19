@@ -89,6 +89,9 @@ hr.divider { border: none; border-top: 2px solid var(--line); margin: 16px 0 12p
 .ctrl-lbl { width: 48px; flex: none; color: #41506a; }
 .ctrl-row .reset { margin-left: auto; }
 .pan-block { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; }
+.view-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 12px; }
+.view-row .vg { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; }
+.reset-all { width: 100%; margin-top: 12px; }
 .dpad { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 30px); gap: 4px; }
 .dpad button { padding: 0; font-weight: 600; }
 #panU, .nU { grid-area: 1 / 2; }
