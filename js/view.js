@@ -42,7 +42,7 @@ export function makeView(data, { w, h, rotDeg = 0, marginFrac = 0.9, zoom = 1, p
     return { x0, x1, y0, y1 };
   };
 
-  return { w, h, cx, cy, scale, rotRad, originX, originY, toLocal, coverBbox, mercConst: { R, C } };
+  return { w, h, cx, cy, scale, rotRad, originX, originY, toLocal, screenToMerc, coverBbox, mercConst: { R, C } };
 }
 
 // ground feet per screen pixel (for the scale bar), accounting for mercator

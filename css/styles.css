@@ -112,8 +112,10 @@ footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 0 
 .anno-type { font-weight: 600; font-size: 0.84rem; color: #2a3650; flex: 1; }
 .anno-card input[type=color] { width: 30px; height: 26px; padding: 0; flex: none; }
 .anno-del { padding: 3px 9px; font-size: 0.85rem; line-height: 1; flex: none; }
-.anno-nudge { display: flex; align-items: center; gap: 8px; }
+.anno-nudge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .anno-nudge .dpad { grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 26px); }
+.anno-place { margin-left: auto; padding: 6px 10px; font-size: 0.8rem; }
+#figure.placing { cursor: crosshair; }
 
 /* report builder */
 .group label.chk { flex-direction: row; align-items: center; gap: 6px; }
