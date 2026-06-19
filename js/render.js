@@ -210,10 +210,12 @@ export function drawAnnotations(ctx, view, annos) {
       const fs = Math.max(6, a.fontSize || 28);
       ctx.font = `600 ${fs}px Arial, sans-serif`;
       ctx.textAlign = "left"; ctx.textBaseline = "middle";
-      ctx.lineJoin = "round"; ctx.miterLimit = 2;
-      ctx.strokeStyle = luminance(a.color) > 0.5 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.92)";
-      ctx.lineWidth = Math.max(2, fs / 6);
-      ctx.strokeText(a.text || "", sx, sy);             // contrast halo
+      if (a.halo) {                                     // optional contrast halo
+        ctx.lineJoin = "round"; ctx.miterLimit = 2;
+        ctx.strokeStyle = luminance(a.color) > 0.5 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.92)";
+        ctx.lineWidth = Math.max(2, fs / 6);
+        ctx.strokeText(a.text || "", sx, sy);
+      }
       ctx.fillStyle = a.color; ctx.fillText(a.text || "", sx, sy);
     }
     ctx.restore();

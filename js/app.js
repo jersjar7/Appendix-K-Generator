@@ -293,10 +293,35 @@ function addAnnotation(type) {
   const base = { id: ++annoSeq, type, ax, ay, ox: 0, oy: 0, visible: true };
   annotations.push(type === "arrow"
     ? { ...base, color: "#ff3b30", length: 140, angle: 0, thickness: 5 }
-    : { ...base, color: "#ffffff", text: "Label", fontSize: 30 });
+    : { ...base, color: "#000000", text: "Label", fontSize: 30, halo: false });
   renderAnnoList();
   scene && render();
 }
+let placingId = null;                                           // annotation awaiting a map click
+function beginPlacing(id) {
+  placingId = id;
+  $("figure").classList.add("placing");
+  msg("Click on the map to place this annotation. (Esc to cancel.)", "ok");
+}
+function cancelPlacing() {
+  if (placingId == null) return;
+  placingId = null;
+  $("figure").classList.remove("placing");
+}
+$("figure").addEventListener("click", (e) => {
+  if (placingId == null || !scene) return;
+  const cv = $("figure"), rect = cv.getBoundingClientRect();
+  const fx = (e.clientX - rect.left) * (cv.width / rect.width);  // CSS px → frame px
+  const fy = (e.clientY - rect.top) * (cv.height / rect.height);
+  const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
+  const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
+  const m = view.screenToMerc(fx, fy);
+  const a = annotations.find((x) => x.id === placingId);
+  if (a) { a.ax = m.x; a.ay = m.y; a.ox = 0; a.oy = 0; }         // drop it exactly where clicked
+  cancelPlacing();
+  render();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") cancelPlacing(); });
 function removeAnnotation(id) {
   annotations = annotations.filter((a) => a.id !== id);
   renderAnnoList();
@@ -326,7 +351,10 @@ function annoCard(a, i) {
       <label class="inline">Thickness <input type="number" class="anno-th" value="${a.thickness}" min="1" max="30" step="1" /></label>`
     : `
       <input type="text" class="anno-text" value="${(a.text || "").replace(/"/g, "&quot;")}" placeholder="Label text" />
-      <label class="inline">Font size <input type="number" class="anno-font" value="${a.fontSize}" min="8" max="120" step="1" /></label>`}
+      <div class="row2">
+        <label class="inline">Font size <input type="number" class="anno-font" value="${a.fontSize}" min="8" max="120" step="1" /></label>
+        <label class="chk"><input type="checkbox" class="anno-halo" ${a.halo ? "checked" : ""} /> Halo</label>
+      </div>`}
     <div class="anno-nudge">
       <span class="ctrl-lbl">Move</span>
       <div class="dpad">
@@ -335,6 +363,7 @@ function annoCard(a, i) {
         <button type="button" class="nD" title="Down">▼</button>
         <button type="button" class="nR" title="Right">▶</button>
       </div>
+      <button type="button" class="anno-place" title="Then click the map to drop it there">◎ Place on map</button>
     </div>`;
   const q = (s) => card.querySelector(s);
   const upd = () => scene && render();
@@ -348,7 +377,9 @@ function annoCard(a, i) {
   } else {
     q(".anno-text").addEventListener("input", (e) => { a.text = e.target.value; upd(); });
     q(".anno-font").addEventListener("input", (e) => { a.fontSize = parseFloat(e.target.value) || a.fontSize; upd(); });
+    q(".anno-halo").addEventListener("change", (e) => { a.halo = e.target.checked; upd(); });
   }
+  q(".anno-place").addEventListener("click", () => beginPlacing(a.id));
   q(".nU").addEventListener("click", () => { a.oy -= ANNO_NUDGE; upd(); });
   q(".nD").addEventListener("click", () => { a.oy += ANNO_NUDGE; upd(); });
   q(".nL").addEventListener("click", () => { a.ox -= ANNO_NUDGE; upd(); });
