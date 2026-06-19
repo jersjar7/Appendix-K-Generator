@@ -16,9 +16,13 @@ let ready = false;
 // proj = reprojected mesh { N, tris, mx, my, z, bbox, latRad } (done once at load)
 const conditions = new Map();
 const getCond = (k) => { if (!conditions.has(k)) conditions.set(k, {}); return conditions.get(k); };
-const condKey = (name) => {
-  const m = /\b(EX|PR)\b/i.exec(name) || /(EX|PR)_Mesh/i.exec(name);
-  return m ? m[1].toUpperCase() : "DEFAULT";
+// Decide a mesh's condition from its internal name AND the uploaded file name,
+// matching either the EX/PR abbreviation or the spelled-out word.
+const condKey = (name, fileName = "") => {
+  const s = `${name} ${fileName}`;
+  if (/\bPR\b|PR[_-]?Mesh|propos/i.test(s)) return "PR";
+  if (/\bEX\b|EX[_-]?Mesh|exist/i.test(s)) return "EX";
+  return "DEFAULT";
 };
 const condLabel = (k) => ({ EX: "Existing", PR: "Proposed" }[k] || "Mesh");
 function allRuns() {                       // flat run list across complete conditions
@@ -61,8 +65,8 @@ $("files").addEventListener("change", async (e) => {
     const fname = file.name.replace(/[^\w.]/g, "_");
     h5wasm.FS.writeFile(fname, buf);
     const h = new h5wasm.File(fname, "r");
-    if (isGeometryFile(h)) { const g = readGeometry(h); getCond(condKey(g.meshName)).proj = projectMesh(g); }
-    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const c = getCond(condKey(ds.runs[0] ? ds.runs[0].name : "")); c.dFile = h; c.datasets = ds; }
+    if (isGeometryFile(h)) { const g = readGeometry(h); getCond(condKey(g.meshName, fname)).proj = projectMesh(g); }
+    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const c = getCond(condKey(ds.runs[0] ? ds.runs[0].name : "", fname)); c.dFile = h; c.datasets = ds; }
   }
   refreshStatus();
 });
