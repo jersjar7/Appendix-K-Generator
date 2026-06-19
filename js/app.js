@@ -8,6 +8,7 @@ import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
 import shp from "shpjs";
 import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
+import { buildReportDocx } from "./reportdoc.js";
 
 const $ = (id) => document.getElementById(id);
 let ready = false;
@@ -144,87 +145,50 @@ $("generate").addEventListener("click", async () => {
   finally { $("generate").disabled = false; }
 });
 
+const eventOf = (name) => name.replace(/\(SRH-2D\)/i, "").replace(/^(EX|PR)\b/i, "").trim();
+
+// Build the data for one figure (run + parameter) — used by the live view AND
+// the batch report. Auto-scales the legend to that figure's data.
+function buildFig(runSel, paramName) {
+  const { run, cond, key } = runSel;
+  const def = paramDef(paramName);
+  const values = finalTimestep(cond.dFile, run.name, paramName);
+  let lo = Infinity, hi = -Infinity;
+  for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const nb = niceBounds(lo, hi);
+  return {
+    proj: cond.proj, values, def, paramName, range: { min: nb.min, max: nb.max },
+    condKey: key, event: eventOf(run.name),
+    title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
+    fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
+    defRamp: def.ramp, defCount: Math.max(2, Math.round((nb.max - nb.min) / nb.step)), wetMax: hi,
+  };
+}
+
 async function generate() {
   const sel = allRuns()[+$("run").value];
   if (!sel) return;
-  const { run, cond } = sel;
-  const paramName = $("param").value;
-  const def = paramDef(paramName);
-  const values = finalTimestep(cond.dFile, run.name, paramName);
-
-  let lo = Infinity, hi = -Infinity;
-  for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  // auto-scale to the data as it comes from SMS (nice rounded bounds for a clean legend)
-  const nb = niceBounds(lo, hi);
-  const range = { min: nb.min, max: nb.max };
-  $("legendIntervals").value = Math.max(2, Math.round((nb.max - nb.min) / nb.step));
-  $("legendRamp").value = def.ramp; // SMS-default ramp for this parameter (user can change)
-
-  scene = {
-    proj: cond.proj, values, def, paramName, range,
-    title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
-    fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
-    wetMax: hi,
-  };
+  scene = buildFig(sel, $("param").value);
+  $("legendIntervals").value = scene.defCount;   // seed legend controls for live edits
+  $("legendRamp").value = scene.defRamp;
   await render();
-  // reveal the figure and the rest of the controls (collapsed) on first generate
   $("placeholder").hidden = true;
   $("figure").hidden = false;
   $("download").hidden = false;
   $("customize").hidden = false;
+  if (typeof refreshReport === "function") refreshReport();
   msg(`Generated ${scene.title}. Wet max ${scene.wetMax.toFixed(2)} ${scene.def.units}.`, "ok");
 }
 
-// ---- render: uses the cached scene + current orientation/rotation (instant) ----
+// ---- render the live figure (reads the legend ramp/intervals the user edits) ----
 async function render() {
   if (!scene) return;
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
   const cv = $("figure"); cv.width = frame.w; cv.height = frame.h;
-  const ctx = cv.getContext("2d");
-  const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
-
-  // neutral backdrop (only visible if a tile fails); full-bleed otherwise
-  ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
-
-  // Esri World Imagery aerial (best-effort; figure still renders if offline)
-  await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });
-  // fade the aerial so contours read on top
-  ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h);
-
-  // legend/contour classification: user-set number of intervals drives both
-  const count = Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || 12));
-  const o = { min: scene.range.min, max: scene.range.max, interval: (scene.range.max - scene.range.min) / count, ramp: $("legendRamp").value };
-
-  // contours, rotated with the map (shares the panned origin)
-  ctx.save();
-  ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
-  const N = scene.proj.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
-  for (let i = 0; i < N; i++) { const p = view.toLocal(scene.proj.mx[i], scene.proj.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
-  fillMesh(ctx, lx, ly, scene.proj.tris, scene.values, makeColorFn(scene.paramName, o));
-  drawOverlays(ctx, overlays, view); // shapefile overlays ride the same transform
-  ctx.restore();
-
-  // overlay labels: upright in screen space (so they stay readable when rotated)
-  drawOverlayLabels(ctx, overlays, view);
-
-  // upright overlays — each placeable + sizable, and individually show/hide-able
-  const num = (id, d) => parseFloat($(id).value) || d;
-  const on = (id) => $(id).checked;
-  const F = { frameW: frame.w, frameH: frame.h };
-  if (on("showTitle")) drawTitle(ctx, scene.title, {
-    ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
+  await composeFigure(cv.getContext("2d"), frame, scene, {
+    ramp: $("legendRamp").value,
+    count: Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || scene.defCount)),
   });
-  if (on("showLegend")) drawLegend(ctx, legendBands(scene.paramName, o), {
-    ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
-  });
-  if (on("showNorth")) drawNorthArrow(ctx, {
-    ...F, anchor: $("naPos").value, offX: num("naX", 0), offY: num("naY", 0), radius: num("naSize", 46), rotRad: view.rotRad,
-  });
-  if (on("showScale")) drawScaleBar(ctx, {
-    ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
-    ftPerPixel: ftPerPixel(view, scene.proj.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
-  });
-
   $("download").disabled = false;
   $("download").onclick = () => {
     const a = document.createElement("a");
@@ -232,6 +196,44 @@ async function render() {
     a.href = cv.toDataURL("image/png");
     a.click();
   };
+}
+
+// ---- compose one figure onto any 2D context (live or off-screen for the report) ----
+// Uses the SHARED view (commonBbox + current rotation/zoom/pan/frame) and the
+// current element layout/show-toggles, so every figure is framed identically.
+async function composeFigure(ctx, frame, fig, { ramp, count }) {
+  const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
+  ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
+  await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });        // tiles cached across figures
+  ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h);
+
+  const o = { min: fig.range.min, max: fig.range.max, interval: (fig.range.max - fig.range.min) / count, ramp };
+
+  ctx.save();
+  ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
+  const N = fig.proj.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
+  for (let i = 0; i < N; i++) { const p = view.toLocal(fig.proj.mx[i], fig.proj.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
+  fillMesh(ctx, lx, ly, fig.proj.tris, fig.values, makeColorFn(fig.paramName, o));
+  drawOverlays(ctx, overlays, view);
+  ctx.restore();
+  drawOverlayLabels(ctx, overlays, view);
+
+  const num = (id, d) => parseFloat($(id).value) || d;
+  const on = (id) => $(id).checked;
+  const F = { frameW: frame.w, frameH: frame.h };
+  if (on("showTitle")) drawTitle(ctx, fig.title, {
+    ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
+  });
+  if (on("showLegend")) drawLegend(ctx, legendBands(fig.paramName, o), {
+    ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
+  });
+  if (on("showNorth")) drawNorthArrow(ctx, {
+    ...F, anchor: $("naPos").value, offX: num("naX", 0), offY: num("naY", 0), radius: num("naSize", 46), rotRad: view.rotRad,
+  });
+  if (on("showScale")) drawScaleBar(ctx, {
+    ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
+    ftPerPixel: ftPerPixel(view, fig.proj.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
+  });
 }
 
 // ---- view + legend controls (live re-render from the cached scene) ----
@@ -278,6 +280,150 @@ document.querySelectorAll(".show-toggle").forEach((cb) => {
   cb.addEventListener("click", (e) => e.stopPropagation());      // don't toggle the <details>
   cb.addEventListener("change", () => scene && render());
 });
+
+// =================== report builder ===================
+const condLabelFull = (k) => ({ EX: "Existing Conditions", PR: "Proposed Conditions" }[k] || "Conditions");
+const PARAM_ORDER = { shear: 0, velocity: 1, depth: 2, wse: 3, froude: 4 };
+const COND_ORDER = { EX: 0, PR: 1 };
+function evRank(e) {
+  const climate = /\b20\d\d\b/.test(e);
+  const nums = (e.match(/\d+/g) || []).map(Number);
+  const interval = climate ? (nums.find((n) => n < 2000) ?? 9999) : (nums[0] ?? 9999);
+  return (climate ? 100000 : 0) + interval;
+}
+
+function availableParams() {
+  const m = new Map();
+  for (const { run } of allRuns()) for (const p of Object.keys(run.params)) if (!run.params[p].vector) m.set(p, paramDef(p).label);
+  return [...m.entries()];
+}
+
+function refreshReport() {
+  const runs = allRuns();
+  $("report").hidden = !runs.length;
+  if (!runs.length) return;
+  $("rpParams").innerHTML = availableParams().map(([p, l]) => `<label class="chk"><input type="checkbox" class="rp-param" value="${p}" checked /> ${l}</label>`).join("");
+  $("rpRuns").innerHTML = runs.map((r, i) => `<label class="chk"><input type="checkbox" class="rp-run" value="${i}" checked /> ${runLabel(r.run.name)}</label>`).join("");
+}
+
+function selectedFigs() {
+  const params = [...document.querySelectorAll(".rp-param:checked")].map((c) => c.value);
+  const runs = allRuns();
+  const figs = [];
+  for (const c of document.querySelectorAll(".rp-run:checked")) {
+    const sel = runs[+c.value];
+    for (const p of params) if (sel.run.params[p] && !sel.run.params[p].vector) figs.push(buildFig(sel, p));
+  }
+  const mode = $("rpOrganize").value;
+  const byP = (f) => PARAM_ORDER[f.def.key] ?? 9, byC = (f) => COND_ORDER[f.condKey] ?? 9, byE = (f) => evRank(f.event);
+  const order = { condition: [byC, byP, byE], parameter: [byP, byC, byE], event: [byE, byP, byC], comparison: [byP, byE, byC] }[mode] || [byC, byP, byE];
+  figs.sort((a, b) => { for (const k of order) { const d = k(a) - k(b); if (d) return d; } return 0; });
+  return figs;
+}
+
+async function renderFigs(figs) {
+  const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
+  const out = [];
+  for (let i = 0; i < figs.length; i++) {
+    msg(`Rendering figure ${i + 1} of ${figs.length}…`, "ok");
+    const cv = document.createElement("canvas"); cv.width = frame.w; cv.height = frame.h;
+    await composeFigure(cv.getContext("2d"), frame, figs[i], { ramp: figs[i].defRamp, count: figs[i].defCount });
+    out.push({ fig: figs[i], canvas: cv });
+  }
+  return out;
+}
+
+function paginate(rendered, perPage, mode, opts) {
+  const gk = (f) => mode === "condition" ? f.condKey : mode === "parameter" ? f.def.key : mode === "event" ? f.event : f.def.key + "|" + f.event;
+  const gl = (f) => mode === "condition" ? condLabelFull(f.condKey) : mode === "parameter" ? f.def.label : mode === "event" ? f.event : `${f.event} ${f.def.label}`;
+  const groups = [];
+  for (const r of rendered) { const k = gk(r.fig); if (!groups.length || groups[groups.length - 1].k !== k) groups.push({ k, label: gl(r.fig), items: [] }); groups[groups.length - 1].items.push(r); }
+  const pages = [];
+  for (const g of groups) for (let i = 0; i < g.items.length; i += perPage) {
+    const page = { items: g.items.slice(i, i + perPage) };
+    if (opts.headings && i === 0) page.heading = g.label;
+    pages.push(page);
+  }
+  return pages;
+}
+
+function figSizeIn(perPage) {
+  const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
+  const aspect = frame.w / frame.h;
+  const w = Math.min(6.5, (perPage === 2 ? 4.0 : 8.4) * aspect);
+  return { widthIn: w, heightIn: w / aspect };
+}
+
+async function buildPages() {
+  const figs = selectedFigs();
+  if (!figs.length) { msg("Pick at least one parameter and run for the report.", "err"); return null; }
+  const rendered = await renderFigs(figs);
+  const mode = $("rpOrganize").value, perPage = +$("rpPerPage").value;
+  const opts = { captions: $("rpCaption").checked, headings: $("rpHeadings").checked };
+  return { pages: paginate(rendered, perPage, mode, opts), opts, total: rendered.length };
+}
+
+function pngBytes(canvas) {
+  const bin = atob(canvas.toDataURL("image/png").split(",")[1]);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function downloadBlob(bytes, name, type) {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+async function previewReport() {
+  $("rpPreview").disabled = true;
+  try {
+    const built = await buildPages();
+    if (!built) return;
+    const sz = figSizeIn(+$("rpPerPage").value);
+    const host = $("previewHost"); host.innerHTML = "";
+    built.pages.forEach((pg, i) => {
+      const el = document.createElement("div"); el.className = "pv-page";
+      if (pg.heading) { const h = document.createElement("div"); h.className = "pv-heading"; h.textContent = pg.heading; el.appendChild(h); }
+      for (const it of pg.items) {
+        const fig = document.createElement("div"); fig.className = "pv-fig";
+        const img = document.createElement("img"); img.src = it.canvas.toDataURL("image/png");
+        img.style.width = (sz.widthIn / 7 * 100) + "%";
+        fig.appendChild(img);
+        if (built.opts.captions) { const cap = document.createElement("div"); cap.className = "pv-cap"; cap.textContent = it.fig.title; fig.appendChild(cap); }
+        el.appendChild(fig);
+      }
+      const num = document.createElement("div"); num.className = "pv-num"; num.textContent = `Page ${i + 1} of ${built.pages.length}`;
+      el.appendChild(num);
+      host.appendChild(el);
+    });
+    $("previewModal").hidden = false;
+    msg(`Preview ready: ${built.total} figures on ${built.pages.length} pages.`, "ok");
+  } catch (e) { msg(e.message, "err"); console.error(e); }
+  finally { $("rpPreview").disabled = false; }
+}
+
+async function generateWord() {
+  $("rpWord").disabled = true;
+  try {
+    const built = await buildPages();
+    if (!built) return;
+    const sz = figSizeIn(+$("rpPerPage").value);
+    const docPages = built.pages.map((pg) => ({
+      heading: pg.heading,
+      figures: pg.items.map((it) => ({ png: pngBytes(it.canvas), caption: built.opts.captions ? it.fig.title : "", widthIn: sz.widthIn, heightIn: sz.heightIn })),
+    }));
+    downloadBlob(buildReportDocx(docPages), "Appendix_K_Report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    msg(`Word report downloaded: ${built.total} figures on ${built.pages.length} pages.`, "ok");
+  } catch (e) { msg(e.message, "err"); console.error(e); }
+  finally { $("rpWord").disabled = false; }
+}
+
+$("rpPreview").addEventListener("click", previewReport);
+$("rpWord").addEventListener("click", generateWord);
+$("previewClose").addEventListener("click", () => { $("previewModal").hidden = true; });
+$("rpSelectAllParams").addEventListener("click", () => document.querySelectorAll(".rp-param").forEach((c) => (c.checked = true)));
+$("rpSelectAllRuns").addEventListener("click", () => document.querySelectorAll(".rp-run").forEach((c) => (c.checked = true)));
 
 function niceMax(v) {
   if (!isFinite(v) || v <= 0) return 1;
