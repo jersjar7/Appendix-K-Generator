@@ -222,8 +222,23 @@
         </div>
       </details>
 
+      <details class="group" id="grpAnno">
+        <summary><span class="num">7</span> <input type="checkbox" class="show-toggle" id="showAnnos" checked title="Show on figure" /> Annotations
+          <span class="infotip">
+            <button type="button" class="info-i" aria-label="About annotations">i</button>
+            <span class="info-pop">Add your own <strong>text labels</strong> (e.g. station names) and <strong>arrows</strong> on the map. Each one pins to a map location, so it tracks pan/zoom/rotate and appears in the same spot on every report figure. Use the <strong>Move</strong> arrows to nudge it into place (10&nbsp;px steps); set the font size, rotation, and color per item.</span>
+          </span>
+        </summary>
+        <div class="row anno-add">
+          <button id="addLabel" type="button">＋ Text label</button>
+          <button id="addArrow" type="button">＋ Arrow</button>
+        </div>
+        <p class="hint tiny" id="annoEmpty">No annotations yet. Add a text label or arrow, then nudge it into place.</p>
+        <div id="annoList"></div>
+      </details>
+
       <details class="group" id="report" hidden>
-        <summary><span class="num">7</span> Report (Word)</summary>
+        <summary><span class="num">8</span> Report (Word)</summary>
         <p class="hint">Build a Word document of figures — all rendered at the current view &amp; formatting, so every figure shares the same extent and layout.</p>
         <div class="subhead nb">Parameters <button id="rpSelectAllParams" class="mini" type="button">All</button></div>
         <div id="rpParams" class="checklist"></div>

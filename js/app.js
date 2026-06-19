@@ -4,7 +4,7 @@ import { toLonLat, lonLatToMerc } from "./geo.js";
 import { makeColorFn, legendBands, paramDef } from "./ramps.js";
 import { fillMesh } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
-import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar } from "./render.js";
+import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
 import shp from "shpjs";
 import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
@@ -41,9 +41,12 @@ function projectMesh(geom) {
 }
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
 let overlays = [];       // [{ name, geojson, color, width, hidden }]
+let annotations = [];    // user text labels + arrows (see drawAnnotations in render.js)
+let annoSeq = 0;
 let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
 const PAN_STEP = 30;     // screen px per pan click (frame coords) — small for fine control
 const ZOOM_STEP = 1.08;  // zoom factor per click — small for fine control
+const ANNO_NUDGE = 10;   // px per annotation nudge click
 
 (async () => { await h5wasm.ready; ready = true; })();
 
@@ -234,6 +237,7 @@ async function composeFigure(ctx, frame, fig, { ramp, count }) {
     ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
     ftPerPixel: ftPerPixel(view, fig.proj.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
   });
+  if (on("showAnnos")) drawAnnotations(ctx, view, annotations);
 }
 
 // ---- view + legend controls (live re-render from the cached scene) ----
@@ -280,6 +284,79 @@ document.querySelectorAll(".show-toggle").forEach((cb) => {
   cb.addEventListener("click", (e) => e.stopPropagation());      // don't toggle the <details>
   cb.addEventListener("change", () => scene && render());
 });
+
+// =================== annotations: map-anchored labels + arrows ===================
+function addAnnotation(type) {
+  const bb = commonBbox();                                       // seed at the shared-extent centroid
+  const ax = isFinite(bb.x0) ? (bb.x0 + bb.x1) / 2 : 0;
+  const ay = isFinite(bb.y0) ? (bb.y0 + bb.y1) / 2 : 0;
+  const base = { id: ++annoSeq, type, ax, ay, ox: 0, oy: 0, visible: true };
+  annotations.push(type === "arrow"
+    ? { ...base, color: "#ff3b30", length: 140, angle: 0, thickness: 5 }
+    : { ...base, color: "#ffffff", text: "Label", fontSize: 30 });
+  renderAnnoList();
+  scene && render();
+}
+function removeAnnotation(id) {
+  annotations = annotations.filter((a) => a.id !== id);
+  renderAnnoList();
+  scene && render();
+}
+function renderAnnoList() {
+  const host = $("annoList"); host.innerHTML = "";
+  $("annoEmpty").hidden = annotations.length > 0;
+  annotations.forEach((a, i) => host.appendChild(annoCard(a, i)));
+}
+function annoCard(a, i) {
+  const card = document.createElement("div");
+  card.className = "anno-card";
+  const isArrow = a.type === "arrow";
+  card.innerHTML = `
+    <div class="anno-head">
+      <input type="checkbox" class="anno-vis" ${a.visible ? "checked" : ""} title="Show on figure" />
+      <span class="anno-type">${isArrow ? "Arrow" : "Label"} ${i + 1}</span>
+      <input type="color" class="anno-color" value="${a.color}" title="Text/arrow color" />
+      <button type="button" class="anno-del" title="Delete">✕</button>
+    </div>
+    ${isArrow ? `
+      <div class="row2">
+        <label class="inline">Length <input type="number" class="anno-len" value="${a.length}" min="10" max="900" step="10" /></label>
+        <label class="inline">Rotate <input type="number" class="anno-ang" value="${a.angle}" step="5" /> °</label>
+      </div>
+      <label class="inline">Thickness <input type="number" class="anno-th" value="${a.thickness}" min="1" max="30" step="1" /></label>`
+    : `
+      <input type="text" class="anno-text" value="${(a.text || "").replace(/"/g, "&quot;")}" placeholder="Label text" />
+      <label class="inline">Font size <input type="number" class="anno-font" value="${a.fontSize}" min="8" max="120" step="1" /></label>`}
+    <div class="anno-nudge">
+      <span class="ctrl-lbl">Move</span>
+      <div class="dpad">
+        <button type="button" class="nU" title="Up">▲</button>
+        <button type="button" class="nL" title="Left">◀</button>
+        <button type="button" class="nD" title="Down">▼</button>
+        <button type="button" class="nR" title="Right">▶</button>
+      </div>
+    </div>`;
+  const q = (s) => card.querySelector(s);
+  const upd = () => scene && render();
+  q(".anno-vis").addEventListener("change", (e) => { a.visible = e.target.checked; upd(); });
+  q(".anno-color").addEventListener("input", (e) => { a.color = e.target.value; upd(); });
+  q(".anno-del").addEventListener("click", () => removeAnnotation(a.id));
+  if (isArrow) {
+    q(".anno-len").addEventListener("input", (e) => { a.length = parseFloat(e.target.value) || a.length; upd(); });
+    q(".anno-ang").addEventListener("input", (e) => { a.angle = parseFloat(e.target.value) || 0; upd(); });
+    q(".anno-th").addEventListener("input", (e) => { a.thickness = parseFloat(e.target.value) || a.thickness; upd(); });
+  } else {
+    q(".anno-text").addEventListener("input", (e) => { a.text = e.target.value; upd(); });
+    q(".anno-font").addEventListener("input", (e) => { a.fontSize = parseFloat(e.target.value) || a.fontSize; upd(); });
+  }
+  q(".nU").addEventListener("click", () => { a.oy -= ANNO_NUDGE; upd(); });
+  q(".nD").addEventListener("click", () => { a.oy += ANNO_NUDGE; upd(); });
+  q(".nL").addEventListener("click", () => { a.ox -= ANNO_NUDGE; upd(); });
+  q(".nR").addEventListener("click", () => { a.ox += ANNO_NUDGE; upd(); });
+  return card;
+}
+$("addLabel").addEventListener("click", () => addAnnotation("label"));
+$("addArrow").addEventListener("click", () => addAnnotation("arrow"));
 
 // =================== report builder ===================
 const condLabelFull = (k) => ({ EX: "Existing Conditions", PR: "Proposed Conditions" }[k] || "Conditions");
