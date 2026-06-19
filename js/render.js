@@ -167,3 +167,55 @@ export function drawScaleBar(ctx, o) {
   ctx.fillText("ft (U.S. Survey)", bx + totalPx / 2, ty + tick + 2 + font + 4);
   ctx.restore();
 }
+
+// Relative luminance of a #rrggbb color (0..1), for picking a contrasting halo.
+function luminance(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return 1;
+  const n = parseInt(m[1], 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+}
+
+// User annotations (text labels + simple arrows), anchored to map coordinates so
+// they track pan/zoom/rotate and land identically on every report figure (shared
+// extent). Drawn in screen space — text stays upright regardless of map rotation.
+// Each: { type:'label'|'arrow', ax, ay (merc anchor), ox, oy (screen-px nudge),
+//   text, fontSize, color, length, angle (deg), thickness, visible }.
+export function drawAnnotations(ctx, view, annos) {
+  if (!annos || !annos.length) return;
+  const cos = Math.cos(view.rotRad), sin = Math.sin(view.rotRad);
+  const project = (a) => {
+    const [lx, ly] = view.toLocal(a.ax, a.ay);
+    return [view.originX + lx * cos - ly * sin + (a.ox || 0), view.originY + lx * sin + ly * cos + (a.oy || 0)];
+  };
+  for (const a of annos) {
+    if (a.visible === false) continue;
+    const [sx, sy] = project(a);
+    ctx.save();
+    if (a.type === "arrow") {
+      const ang = ((a.angle || 0) * Math.PI) / 180;
+      const len = Math.max(4, a.length || 120);
+      const th = Math.max(1, a.thickness || 4);
+      const ex = sx + Math.cos(ang) * len, ey = sy + Math.sin(ang) * len;
+      ctx.strokeStyle = a.color; ctx.fillStyle = a.color; ctx.lineWidth = th; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      const hl = th * 3 + 7, hw = th * 1.8 + 4;          // arrowhead at the tip
+      const ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - ux * hl + nx * hw, ey - uy * hl + ny * hw);
+      ctx.lineTo(ex - ux * hl - nx * hw, ey - uy * hl - ny * hw);
+      ctx.closePath(); ctx.fill();
+    } else {
+      const fs = Math.max(6, a.fontSize || 28);
+      ctx.font = `600 ${fs}px Arial, sans-serif`;
+      ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      ctx.lineJoin = "round"; ctx.miterLimit = 2;
+      ctx.strokeStyle = luminance(a.color) > 0.5 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.92)";
+      ctx.lineWidth = Math.max(2, fs / 6);
+      ctx.strokeText(a.text || "", sx, sy);             // contrast halo
+      ctx.fillStyle = a.color; ctx.fillText(a.text || "", sx, sy);
+    }
+    ctx.restore();
+  }
+}
