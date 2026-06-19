@@ -165,11 +165,30 @@ function buildFig(runSel, paramName) {
   const nb = niceBounds(lo, hi);
   return {
     proj: cond.proj, values, def, paramName, range: { min: nb.min, max: nb.max },
-    condKey: key, event: eventOf(run.name),
+    condKey: key, event: eventOf(run.name), condName: condLabel(key), runText: runLabel(run.name),
     title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
     fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
     defRamp: def.ramp, defCount: Math.max(2, Math.round((nb.max - nb.min) / nb.step)), wetMax: hi,
   };
+}
+
+// Title is a TEMPLATE with tokens each figure fills in, so every figure's title
+// is correct and specific (in the live view AND the Word report) while sharing
+// one format. Empty template → the default below.
+const DEFAULT_TITLE_TEMPLATE = "{run} — {parameter} ({units})";
+function resolveTitle(fig, template) {
+  const tpl = (template && template.trim()) || DEFAULT_TITLE_TEMPLATE;
+  const map = {
+    run: fig.runText || "", condition: fig.condName || "", event: fig.event || "",
+    parameter: fig.def?.label || "", units: fig.def?.units || "",
+  };
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m))
+    .replace(/\(\s*\)/g, "")                  // drop empty () when a token (e.g. units) was blank
+    .replace(/\s{2,}/g, " ").replace(/\s*—\s*$/, "").replace(/^\s*—\s*/, "").trim();
+}
+const figTitle = (fig) => resolveTitle(fig, $("titleText").value);  // reads the live template
+function updateTitlePreview() {
+  $("titlePreview").textContent = scene ? figTitle(scene) : "—";
 }
 
 async function generate() {
@@ -178,6 +197,7 @@ async function generate() {
   scene = buildFig(sel, $("param").value);
   $("legendIntervals").value = scene.defCount;   // seed legend controls for live edits
   $("legendRamp").value = scene.defRamp;
+  updateRampPreview();
   await render();
   $("placeholder").hidden = true;
   $("figure").hidden = false;
@@ -195,8 +215,8 @@ async function render() {
   await composeFigure(cv.getContext("2d"), frame, scene, {
     ramp: $("legendRamp").value,
     count: Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || scene.defCount)),
-    titleText: $("titleText").value,
   });
+  updateTitlePreview();
   $("download").disabled = false;
   $("download").onclick = () => {
     const a = document.createElement("a");
@@ -209,7 +229,7 @@ async function render() {
 // ---- compose one figure onto any 2D context (live or off-screen for the report) ----
 // Uses the SHARED view (commonBbox + current rotation/zoom/pan/frame) and the
 // current element layout/show-toggles, so every figure is framed identically.
-async function composeFigure(ctx, frame, fig, { ramp, count, titleText }) {
+async function composeFigure(ctx, frame, fig, { ramp, count }) {
   const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
   ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
   await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });        // tiles cached across figures
@@ -229,7 +249,7 @@ async function composeFigure(ctx, frame, fig, { ramp, count, titleText }) {
   const num = (id, d) => parseFloat($(id).value) || d;
   const on = (id) => $(id).checked;
   const F = { frameW: frame.w, frameH: frame.h };
-  if (on("showTitle")) drawTitle(ctx, (titleText && titleText.trim()) || fig.title, {
+  if (on("showTitle")) drawTitle(ctx, figTitle(fig), {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
   if (on("showLegend")) drawLegend(ctx, legendBands(fig.paramName, o), {
@@ -263,6 +283,19 @@ function updateRampPreview() {
 }
 $("legendRamp").addEventListener("change", updateRampPreview);
 updateRampPreview();
+
+// title template: prefill with the default, live preview, and token chips that
+// insert at the cursor (each figure fills the tokens with its own values)
+$("titleText").value = DEFAULT_TITLE_TEMPLATE;
+$("titleText").addEventListener("input", updateTitlePreview);
+updateTitlePreview();
+document.querySelectorAll(".token").forEach((btn) => btn.addEventListener("click", () => {
+  const inp = $("titleText"), tok = btn.dataset.token;
+  const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? inp.value.length;
+  inp.value = inp.value.slice(0, s) + tok + inp.value.slice(e);
+  const pos = s + tok.length; inp.focus(); inp.setSelectionRange(pos, pos);
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+}));
 function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotDeg; scene && render(); }
 $("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
 $("rotCW").addEventListener("click", () => setRot(rotDeg + 90));
@@ -545,7 +578,7 @@ async function previewReport() {
         img.style.width = sz.widthIn * scale + "px";
         img.style.height = sz.heightIn * scale + "px";
         fig.appendChild(img);
-        if (built.opts.captions) { const cap = document.createElement("div"); cap.className = "pv-cap"; cap.textContent = it.fig.title; fig.appendChild(cap); }
+        if (built.opts.captions) { const cap = document.createElement("div"); cap.className = "pv-cap"; cap.textContent = figTitle(it.fig); fig.appendChild(cap); }
         el.appendChild(fig);
       }
       wrap.appendChild(el);
@@ -567,7 +600,7 @@ async function generateWord() {
     const sz = figSizeIn(+$("rpPerPage").value);
     const docPages = built.pages.map((pg) => ({
       heading: pg.heading,
-      figures: pg.items.map((it) => ({ png: pngBytes(it.canvas), caption: built.opts.captions ? it.fig.title : "", widthIn: sz.widthIn, heightIn: sz.heightIn })),
+      figures: pg.items.map((it) => ({ png: pngBytes(it.canvas), caption: built.opts.captions ? figTitle(it.fig) : "", widthIn: sz.widthIn, heightIn: sz.heightIn })),
     }));
     downloadBlob(buildReportDocx(docPages, { landscape: pageDims().landscape }), "Appendix_K_Report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     msg(`Word report downloaded: ${built.total} figures on ${built.pages.length} pages.`, "ok");

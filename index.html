@@ -163,8 +163,22 @@
       </details>
 
       <details class="group">
-        <summary><span class="num">4</span> <input type="checkbox" class="show-toggle" id="showTitle" checked title="Show on figure" /> Title</summary>
-        <label>Custom title <input id="titleText" type="text" placeholder="Auto: run — parameter" /></label>
+        <summary><span class="num">4</span> <input type="checkbox" class="show-toggle" id="showTitle" checked title="Show on figure" /> Title
+          <span class="infotip">
+            <button type="button" class="info-i" aria-label="About the title template">i</button>
+            <span class="info-pop">The title is a <strong>template</strong>. The tokens below are filled in for <em>each</em> figure, so every figure (on screen and in the Word report) gets its own correct, specific title — they're never identical. Edit the text or click a token to insert it; the preview shows the current figure's title.</span>
+          </span>
+        </summary>
+        <label>Title template <input id="titleText" type="text" placeholder="{run} — {parameter} ({units})" /></label>
+        <div class="token-row">
+          <span class="token-lbl">Insert:</span>
+          <button type="button" class="token" data-token="{condition}">condition</button>
+          <button type="button" class="token" data-token="{event}">event</button>
+          <button type="button" class="token" data-token="{parameter}">parameter</button>
+          <button type="button" class="token" data-token="{units}">units</button>
+          <button type="button" class="token" data-token="{run}">run</button>
+        </div>
+        <div class="title-preview">This figure: <span id="titlePreview">—</span></div>
         <label>Position
           <select id="titlePos">
             <option value="tc">Top-center</option>
