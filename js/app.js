@@ -1,7 +1,7 @@
 import * as h5wasm from "../vendor/h5wasm/hdf5_hl.js";
 import { readGeometry, readDatasets, finalTimestep, isGeometryFile, isDatasetsFile } from "./h5.js";
 import { toLonLat, lonLatToMerc } from "./geo.js";
-import { makeColorFn, legendBands, paramDef } from "./ramps.js";
+import { makeColorFn, legendBands, paramDef, RAMPS } from "./ramps.js";
 import { fillMesh } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
@@ -195,6 +195,7 @@ async function render() {
   await composeFigure(cv.getContext("2d"), frame, scene, {
     ramp: $("legendRamp").value,
     count: Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || scene.defCount)),
+    titleText: $("titleText").value,
   });
   $("download").disabled = false;
   $("download").onclick = () => {
@@ -208,7 +209,7 @@ async function render() {
 // ---- compose one figure onto any 2D context (live or off-screen for the report) ----
 // Uses the SHARED view (commonBbox + current rotation/zoom/pan/frame) and the
 // current element layout/show-toggles, so every figure is framed identically.
-async function composeFigure(ctx, frame, fig, { ramp, count }) {
+async function composeFigure(ctx, frame, fig, { ramp, count, titleText }) {
   const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
   ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
   await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });        // tiles cached across figures
@@ -228,7 +229,7 @@ async function composeFigure(ctx, frame, fig, { ramp, count }) {
   const num = (id, d) => parseFloat($(id).value) || d;
   const on = (id) => $(id).checked;
   const F = { frameW: frame.w, frameH: frame.h };
-  if (on("showTitle")) drawTitle(ctx, fig.title, {
+  if (on("showTitle")) drawTitle(ctx, (titleText && titleText.trim()) || fig.title, {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
   if (on("showLegend")) drawLegend(ctx, legendBands(fig.paramName, o), {
@@ -248,10 +249,20 @@ async function composeFigure(ctx, frame, fig, { ramp, count }) {
 $("orientation").addEventListener("change", () => scene && render());
 for (const id of [
   "legendPos", "legendX", "legendY", "legendFont", "legendIntervals", "legendRamp",
-  "titlePos", "titleX", "titleY", "titleFont",
+  "titlePos", "titleX", "titleY", "titleFont", "titleText",
   "naPos", "naX", "naY", "naSize",
   "sbPos", "sbX", "sbY", "sbSize", "sbSegments",
 ]) $(id).addEventListener("input", () => scene && render());
+
+// show the selected ramp's actual colors so users know what they're choosing
+function updateRampPreview() {
+  const stops = RAMPS[$("legendRamp").value];
+  if (!stops) return;
+  const css = stops.map(([p, [r, g, b]]) => `rgb(${r},${g},${b}) ${Math.round(p * 100)}%`).join(", ");
+  $("rampPreview").style.background = `linear-gradient(to right, ${css})`;
+}
+$("legendRamp").addEventListener("change", updateRampPreview);
+updateRampPreview();
 function setRot(deg) { rotDeg = ((deg % 360) + 360) % 360; $("rot").value = rotDeg; scene && render(); }
 $("rotCCW").addEventListener("click", () => setRot(rotDeg - 90));
 $("rotCW").addEventListener("click", () => setRot(rotDeg + 90));
@@ -495,8 +506,20 @@ function downloadBlob(bytes, name, type) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// Button busy-state with a spinner, so long report builds show progress.
+async function setBusy(btn, label) {
+  btn.dataset.label = btn.innerHTML;
+  btn.innerHTML = `<span class="spinner"></span>${label}`;
+  btn.disabled = true;
+  await new Promise((r) => setTimeout(r, 0));           // let the spinner paint before heavy work
+}
+function clearBusy(btn) {
+  if (btn.dataset.label != null) { btn.innerHTML = btn.dataset.label; delete btn.dataset.label; }
+  btn.disabled = false;
+}
+
 async function previewReport() {
-  $("rpPreview").disabled = true;
+  await setBusy($("rpPreview"), "Building…");
   try {
     const built = await buildPages();
     if (!built) return;
@@ -533,11 +556,11 @@ async function previewReport() {
     $("previewModal").hidden = false;
     msg(`Preview ready: ${built.total} figures on ${built.pages.length} pages.`, "ok");
   } catch (e) { msg(e.message, "err"); console.error(e); }
-  finally { $("rpPreview").disabled = false; }
+  finally { clearBusy($("rpPreview")); }
 }
 
 async function generateWord() {
-  $("rpWord").disabled = true;
+  await setBusy($("rpWord"), "Generating…");
   try {
     const built = await buildPages();
     if (!built) return;
@@ -549,7 +572,7 @@ async function generateWord() {
     downloadBlob(buildReportDocx(docPages, { landscape: pageDims().landscape }), "Appendix_K_Report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     msg(`Word report downloaded: ${built.total} figures on ${built.pages.length} pages.`, "ok");
   } catch (e) { msg(e.message, "err"); console.error(e); }
-  finally { $("rpWord").disabled = false; }
+  finally { clearBusy($("rpWord")); }
 }
 
 $("rpPreview").addEventListener("click", previewReport);

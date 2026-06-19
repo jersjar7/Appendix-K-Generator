@@ -155,6 +155,7 @@
             <option value="surcharge">Surcharge</option>
           </select>
         </label>
+        <div id="rampPreview" class="ramp-preview" title="Colors of the selected ramp (low → high)"></div>
         <div class="row2">
           <label class="inline">Intervals <input id="legendIntervals" type="number" value="12" min="2" max="60" step="1" /></label>
           <label class="inline">Font size <input id="legendFont" type="number" value="20" min="8" max="48" step="1" /></label>
@@ -163,6 +164,7 @@
 
       <details class="group">
         <summary><span class="num">4</span> <input type="checkbox" class="show-toggle" id="showTitle" checked title="Show on figure" /> Title</summary>
+        <label>Custom title <input id="titleText" type="text" placeholder="Auto: run — parameter" /></label>
         <label>Position
           <select id="titlePos">
             <option value="tc">Top-center</option>
