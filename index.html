@@ -35,46 +35,61 @@
       </div>
 
       <details class="group" id="grpData" open>
-        <summary><span class="num">1</span> Data
-          <span class="infotip">
-            <button type="button" class="info-i" aria-label="How to get the data files">i</button>
-            <span class="info-pop">
-              <strong>Two <code>.h5</code> files</strong>, both exported from your <strong>mesh</strong> in SMS:
-              <div class="sub-hd">File 1 — mesh geometry</div>
-              <ol>
-                <li>Right-click the mesh (under <em>Mesh Data</em>) → <strong>Export…</strong></li>
-                <li><strong>Save as type → XMDF File (*.h5)</strong>, name it, save.</li>
-              </ol>
-              <div class="sub-hd">File 2 — all datasets</div>
-              <ol>
-                <li>Right-click the mesh → <strong>Export Datasets…</strong></li>
-                <li>In <strong>Select Tree Item</strong>, check <strong>Z</strong> + the datasets you want (grab all).</li>
-                <li>Datasets: Shear (B_Stress), Froude, Velocity Magnitude, Velocity (x/y), Water Depth, Water Elevation. <em>Froude not needed.</em></li>
-                <li>Name it and save.</li>
-              </ol>
-              Drop the files below — any order; the app detects which is which.
-              <div class="sub-hd">Existing &amp; Proposed</div>
-              Each mesh needs those two files. For a full Appendix K comparison, upload <strong>both your Existing and Proposed meshes</strong> (up to 4 files) — the app pairs them by the <code>EX</code>/<code>PR</code> name. You can also load <strong>just one</strong> condition; the report includes whatever you upload.
-            </span>
-          </span>
-        </summary>
-        <input id="files" type="file" accept=".h5" multiple />
-        <div id="fileStatus" class="status"></div>
-        <div id="dataSelectors" hidden>
-          <div class="subhead">Overlays (optional)
+        <summary><span class="num">1</span> Data</summary>
+
+        <div class="block">
+          <div class="block-hd">Mesh files <span class="type-chip">.h5</span>
             <span class="infotip">
-              <button type="button" class="info-i" aria-label="About overlays">i</button>
-              <span class="info-pop">Draw shapefiles on the figure — stream centerline (arc), stationing (points), boundaries (polygon). In SMS, right-click the coverage → <strong>Export…</strong> → Shapefile; <strong>zip</strong> the parts (.shp/.shx/.dbf/.prj) and drop the .zip below.</span>
+              <button type="button" class="info-i" aria-label="How to get the mesh files">i</button>
+              <span class="info-pop">
+                <strong>Two <code>.h5</code> files</strong>, both exported from your <strong>mesh</strong> in SMS:
+                <div class="sub-hd">File 1 — mesh geometry</div>
+                <ol>
+                  <li>Right-click the mesh (under <em>Mesh Data</em>) → <strong>Export…</strong></li>
+                  <li><strong>Save as type → XMDF File (*.h5)</strong>, name it, save.</li>
+                </ol>
+                <div class="sub-hd">File 2 — all datasets</div>
+                <ol>
+                  <li>Right-click the mesh → <strong>Export Datasets…</strong></li>
+                  <li>In <strong>Select Tree Item</strong>, check <strong>Z</strong> + the datasets you want (grab all).</li>
+                  <li>Datasets: Shear (B_Stress), Froude, Velocity Magnitude, Velocity (x/y), Water Depth, Water Elevation. <em>Froude not needed.</em></li>
+                  <li>Name it and save.</li>
+                </ol>
+                Drop the files below — any order; the app detects which is which.
+                <div class="sub-hd">Existing &amp; Proposed</div>
+                Each mesh needs those two files. For a full Appendix K comparison, upload <strong>both your Existing and Proposed meshes</strong> (up to 4 files) — the app pairs them by the <code>EX</code>/<code>PR</code> name. You can also load <strong>just one</strong> condition; the report includes whatever you upload.
+              </span>
             </span>
           </div>
-          <input id="overlayFiles" type="file" accept=".zip" multiple />
-          <ul id="overlayList" class="overlay-list"></ul>
+          <label class="dropzone" id="dropMesh">
+            <input id="files" type="file" accept=".h5" multiple class="visually-hidden" />
+            <span class="dz-icon">⬆</span>
+            <span class="dz-main">Drag the <code>.h5</code> files here</span>
+            <span class="dz-sub">or click to browse — geometry + datasets, per condition (2–4 files)</span>
+          </label>
+          <div id="fileStatus" class="status filestatus"></div>
+        </div>
 
-          <hr class="divider" />
+        <div id="dataSelectors" hidden>
+          <div class="block">
+            <div class="block-hd">Overlays <span class="type-chip">.zip</span> <span class="opt">optional</span>
+              <span class="infotip">
+                <button type="button" class="info-i" aria-label="About overlays">i</button>
+                <span class="info-pop">Draw shapefiles on the figure — stream centerline (arc), stationing (points), boundaries (polygon). In SMS, right-click the coverage → <strong>Export…</strong> → Shapefile; <strong>zip</strong> the parts (.shp/.shx/.dbf/.prj) and drop the .zip below.</span>
+              </span>
+            </div>
+            <label class="dropzone small" id="dropOverlay">
+              <input id="overlayFiles" type="file" accept=".zip" multiple class="visually-hidden" />
+              <span class="dz-main">Drop shapefile <code>.zip</code> here, or click</span>
+            </label>
+            <ul id="overlayList" class="overlay-list"></ul>
+          </div>
 
-          <div class="subhead nb">Result to plot</div>
-          <label>Run <select id="run"></select></label>
-          <label>Parameter <select id="param"></select></label>
+          <div class="block">
+            <div class="block-hd">Result to plot</div>
+            <label>Run <select id="run"></select></label>
+            <label>Parameter <select id="param"></select></label>
+          </div>
         </div>
       </details>
 

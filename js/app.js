@@ -58,9 +58,9 @@ const setStatus = (html) => ($("fileStatus").innerHTML = html);
 const msg = (text, type = "ok") => ($("messages").innerHTML = `<div class="msg-${type}">${text}</div>`);
 const runLabel = (n) => n.replace(/\(SRH-2D\)/i, "").replace(/^EX\b/i, "Existing").replace(/^PR\b/i, "Proposed").trim();
 
-$("files").addEventListener("change", async (e) => {
+async function ingestMeshFiles(files) {
   if (!ready) await h5wasm.ready;
-  for (const file of e.target.files) {
+  for (const file of files) {
     const buf = new Uint8Array(await file.arrayBuffer());
     const fname = file.name.replace(/[^\w.]/g, "_");
     h5wasm.FS.writeFile(fname, buf);
@@ -69,14 +69,32 @@ $("files").addEventListener("change", async (e) => {
     else if (isDatasetsFile(h)) { const ds = readDatasets(h); const c = getCond(condKey(ds.runs[0] ? ds.runs[0].name : "", fname)); c.dFile = h; c.datasets = ds; }
   }
   refreshStatus();
-});
+}
+
+// click-or-drop dropzone: a styled label triggers the hidden input; dragged
+// files (matching `accept`) are routed through the same handler.
+function wireDropzone(zoneId, inputId, onFiles, accept) {
+  const zone = $(zoneId), input = $(inputId);
+  input.addEventListener("change", (e) => { onFiles([...e.target.files]); input.value = ""; });
+  ["dragenter", "dragover"].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add("drag"); }));
+  ["dragleave", "dragend", "drop"].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove("drag"); }));
+  zone.addEventListener("drop", (e) => {
+    const files = [...(e.dataTransfer?.files || [])].filter((f) => accept.test(f.name));
+    if (files.length) onFiles(files);
+  });
+}
+wireDropzone("dropMesh", "files", ingestMeshFiles, /\.h5$/i);
 
 function refreshStatus() {
-  const lines = [];
+  const badge = (on, label, detail) =>
+    `<span class="badge ${on ? "on" : ""}">${on ? "✓ " : ""}${label}${on && detail ? ` <em>${detail}</em>` : ""}</span>`;
+  const rows = [];
   for (const [k, c] of conditions) {
-    lines.push(`<div><strong>${condLabel(k)}:</strong> ${c.proj ? `geometry ✓ (${c.proj.N} nodes)` : "geometry ✕"} · ${c.datasets ? `datasets ✓ (${c.datasets.runs.length} runs)` : "datasets ✕"}</div>`);
+    rows.push(`<div class="cond-row"><span class="cond-name">${condLabel(k)}</span>` +
+      badge(!!c.proj, "geometry", c.proj && `${c.proj.N} nodes`) +
+      badge(!!c.datasets, "datasets", c.datasets && `${c.datasets.runs.length} runs`) + `</div>`);
   }
-  setStatus(lines.length ? lines.join("") : "<div>— drop the geometry + datasets .h5 for each mesh</div>");
+  setStatus(rows.length ? rows.join("") : `<div class="status-empty">No files yet — add the geometry + datasets <code>.h5</code> for each mesh.</div>`);
 
   const runs = allRuns();
   $("run").innerHTML = runs.map((r, i) => `<option value="${i}">${runLabel(r.run.name)}</option>`).join("");
@@ -94,23 +112,23 @@ function populateParams() {
 $("run").addEventListener("change", populateParams);
 
 // ---- overlay shapefiles (.zip) ----
-$("overlayFiles").addEventListener("change", async (e) => {
-  for (const file of e.target.files) {
+async function ingestOverlayFiles(files) {
+  for (const file of files) {
     try {
       const res = await shp(await file.arrayBuffer());     // → GeoJSON (lon/lat)
       for (const fc of (Array.isArray(res) ? res : [res])) {
         overlays.push({
           name: (fc.fileName || file.name).replace(/\.zip$/i, "").split("/").pop(),
           geojson: fc, color: OVERLAY_PALETTE[overlays.length % OVERLAY_PALETTE.length],
-          width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc),
+          width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc), open: false,
         });
       }
     } catch (err) { msg(`Could not read ${file.name}: ${err.message}`, "err"); }
   }
-  e.target.value = "";
   renderOverlayList();
   if (scene) render();
-});
+}
+wireDropzone("dropOverlay", "overlayFiles", ingestOverlayFiles, /\.zip$/i);
 
 function renderOverlayList() {
   const ul = $("overlayList");
@@ -118,25 +136,36 @@ function renderOverlayList() {
   overlays.forEach((ov, i) => {
     const li = document.createElement("li");
     li.className = "ov-item";
+    const desc = describe(ov.geojson), sp = desc.indexOf(" ");   // "14320 points" → count + kind
+    const count = sp > 0 ? desc.slice(0, sp) : "", kind = sp > 0 ? desc.slice(sp + 1) : desc;
     const opts = ['<option value="">No labels</option>']
       .concat(ov.fields.map((f) => `<option value="${escapeAttr(f)}"${f === ov.labelField ? " selected" : ""}>${escapeHtml(f)}</option>`))
       .join("");
     li.innerHTML = `
-      <div class="ov-row">
+      <div class="ov-head">
         <input type="checkbox" class="ov-show"${ov.hidden ? "" : " checked"} title="Show / hide" />
         <input type="color" class="ov-color" value="${ov.color}" title="Color" />
-        <span class="ov-name" title="${escapeAttr(ov.name)}">${escapeHtml(ov.name)} <em>(${describe(ov.geojson)})</em></span>
-        <button class="mini ov-del" title="Remove">✕</button>
+        <span class="ov-name" title="${escapeAttr(ov.name)}">${escapeHtml(ov.name)}</span>
+        <span class="ov-type">${escapeHtml(kind)}</span>
+        <span class="ov-count">${count}</span>
+        <button type="button" class="ov-expand" title="Style this overlay" aria-expanded="${ov.open ? "true" : "false"}">${ov.open ? "▴" : "▾"}</button>
+        <button type="button" class="ov-del" title="Remove">✕</button>
       </div>
-      <div class="ov-row ov-row2">
-        <label class="inline">Size <input type="number" class="ov-w" value="${ov.width}" min="1" max="12" step="1" /></label>
-        <label class="inline grow">Label <select class="ov-label">${opts}</select></label>
-        <label class="inline">Text <input type="number" class="ov-ls" value="${ov.labelSize}" min="8" max="60" step="1" /></label>
+      <div class="ov-body"${ov.open ? "" : " hidden"}>
+        <label class="inline">Width <input type="number" class="ov-w" value="${ov.width}" min="1" max="12" step="1" /></label>
+        <label>Label <select class="ov-label">${opts}</select></label>
+        <label class="inline ov-lsize"${ov.labelField ? "" : " hidden"}>Label size <input type="number" class="ov-ls" value="${ov.labelSize}" min="8" max="60" step="1" /></label>
       </div>`;
+    const body = li.querySelector(".ov-body"), lsize = li.querySelector(".ov-lsize");
+    li.querySelector(".ov-expand").addEventListener("click", (e) => {
+      ov.open = !ov.open; body.hidden = !ov.open;
+      e.currentTarget.textContent = ov.open ? "▴" : "▾";
+      e.currentTarget.setAttribute("aria-expanded", ov.open ? "true" : "false");
+    });
     li.querySelector(".ov-show").addEventListener("change", (e) => { ov.hidden = !e.target.checked; scene && render(); });
     li.querySelector(".ov-color").addEventListener("input", (e) => { ov.color = e.target.value; scene && render(); });
     li.querySelector(".ov-w").addEventListener("input", (e) => { ov.width = parseFloat(e.target.value) || 3; scene && render(); });
-    li.querySelector(".ov-label").addEventListener("change", (e) => { ov.labelField = e.target.value; scene && render(); });
+    li.querySelector(".ov-label").addEventListener("change", (e) => { ov.labelField = e.target.value; lsize.hidden = !ov.labelField; scene && render(); });
     li.querySelector(".ov-ls").addEventListener("input", (e) => { ov.labelSize = parseFloat(e.target.value) || 22; scene && render(); });
     li.querySelector(".ov-del").addEventListener("click", () => { overlays.splice(i, 1); renderOverlayList(); scene && render(); });
     ul.appendChild(li);
