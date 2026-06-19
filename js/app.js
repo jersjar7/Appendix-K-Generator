@@ -1,7 +1,7 @@
 import * as h5wasm from "../vendor/h5wasm/hdf5_hl.js";
 import { readGeometry, readDatasets, finalTimestep, isGeometryFile, isDatasetsFile } from "./h5.js";
 import { toLonLat, lonLatToMerc } from "./geo.js";
-import { makeColorFn, legendBands, paramDef, RAMPS } from "./ramps.js";
+import { makeColorFn, legendBands, paramDef, RAMPS, RAMP_OPTIONS } from "./ramps.js";
 import { fillMesh } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
@@ -335,16 +335,38 @@ for (const id of [
 
 // legend SCALE (min/max/interval/ramp) is pinned to the current parameter and
 // reused by the report, so edit it here and it sticks for that parameter.
-for (const id of ["legendMin", "legendMax", "legendStep", "legendRamp"])
-  $(id).addEventListener("input", () => { storeLegend(); updateRampPreview(); scene && render(); });
+for (const id of ["legendMin", "legendMax", "legendStep"])
+  $(id).addEventListener("input", () => { storeLegend(); scene && render(); });
+$("legendRamp").addEventListener("input", () => { storeLegend(); updateRampPreview(); scene && render(); });
 
-// show the selected ramp's actual colors so users know what they're choosing
-function updateRampPreview() {
-  const stops = RAMPS[$("legendRamp").value];
-  if (!stops) return;
-  const css = stops.map(([p, [r, g, b]]) => `rgb(${r},${g},${b}) ${Math.round(p * 100)}%`).join(", ");
-  $("rampPreview").style.background = `linear-gradient(to right, ${css})`;
+// ---- visual color-ramp picker: a custom dropdown that shows each ramp's colors ----
+const rampGradient = (key) => {
+  const s = RAMPS[key];
+  return s ? `linear-gradient(to right, ${s.map(([p, [r, g, b]]) => `rgb(${r},${g},${b}) ${Math.round(p * 100)}%`).join(", ")})` : "";
+};
+const rampLabel = (key) => (RAMP_OPTIONS.find((o) => o[0] === key) || [key, key])[1];
+function buildRampMenu() {
+  $("rampMenu").innerHTML = RAMP_OPTIONS.map(([key, label]) =>
+    `<button type="button" class="ramp-opt" role="option" data-key="${key}"><span class="ramp-opt-name">${label}</span><span class="ramp-opt-sw" style="background:${rampGradient(key)}"></span></button>`).join("");
+  $("rampMenu").querySelectorAll(".ramp-opt").forEach((btn) => btn.addEventListener("click", () => {
+    $("legendRamp").value = btn.dataset.key;
+    $("legendRamp").dispatchEvent(new Event("input", { bubbles: true }));   // → storeLegend + updateRampPreview + render
+    closeRampMenu();
+  }));
 }
+function updateRampPreview() {                       // sync the trigger swatch + menu selection from #legendRamp
+  const key = $("legendRamp").value;
+  if (!RAMPS[key]) return;
+  $("rampTriggerName").textContent = rampLabel(key);
+  $("rampTriggerSw").style.background = rampGradient(key);
+  $("rampMenu").querySelectorAll(".ramp-opt").forEach((b) => b.classList.toggle("sel", b.dataset.key === key));
+}
+const closeRampMenu = () => { $("rampMenu").hidden = true; $("rampTrigger").setAttribute("aria-expanded", "false"); };
+const openRampMenu = () => { $("rampMenu").hidden = false; $("rampTrigger").setAttribute("aria-expanded", "true"); };
+$("rampTrigger").addEventListener("click", (e) => { e.stopPropagation(); $("rampMenu").hidden ? openRampMenu() : closeRampMenu(); });
+document.addEventListener("click", (e) => { if (!e.target.closest("#rampCtl")) closeRampMenu(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeRampMenu(); });
+buildRampMenu();
 updateRampPreview();
 
 // title template: prefill with the default, live preview, and token chips that

@@ -154,30 +154,47 @@
       </details>
 
       <details class="group">
-        <summary><span class="num">3</span> <input type="checkbox" class="show-toggle" id="showLegend" checked title="Show on figure" /> Legend
-          <span class="infotip">
-            <button type="button" class="info-i" aria-label="About the legend scale">i</button>
-            <span class="info-pop">The <strong>scale</strong> (min, max, interval &amp; color ramp) is remembered <strong>per parameter</strong>. Set it while viewing a parameter and it's reused for that parameter everywhere — the live figure and the Word report. Each band spans one <em>interval</em> (e.g. 0.5). Set <strong>Min</strong> to 0 to drop model artifacts like negative depths.</span>
-          </span>
-        </summary>
-        <label>Position
-          <select id="legendPos">
-            <option value="tl">Top-left</option>
-            <option value="tc">Top-center</option>
-            <option value="tr">Top-right</option>
-            <option value="ml">Middle-left</option>
-            <option value="mr">Middle-right</option>
-            <option value="bl">Bottom-left</option>
-            <option value="bc">Bottom-center</option>
-            <option value="br">Bottom-right</option>
-          </select>
-        </label>
-        <div class="row2">
-          <label class="inline">Nudge X <input id="legendX" type="number" value="0" step="10" /></label>
-          <label class="inline">Nudge Y <input id="legendY" type="number" value="0" step="10" /></label>
+        <summary><span class="num">3</span> <input type="checkbox" class="show-toggle" id="showLegend" checked title="Show on figure" /> Legend</summary>
+
+        <div class="block stack">
+          <div class="block-hd">Placement &amp; size</div>
+          <label>Position
+            <select id="legendPos">
+              <option value="tl">Top-left</option>
+              <option value="tc">Top-center</option>
+              <option value="tr">Top-right</option>
+              <option value="ml">Middle-left</option>
+              <option value="mr">Middle-right</option>
+              <option value="bl">Bottom-left</option>
+              <option value="bc">Bottom-center</option>
+              <option value="br">Bottom-right</option>
+            </select>
+          </label>
+          <div class="row2">
+            <label class="inline">Nudge X <input id="legendX" type="number" value="0" step="10" /></label>
+            <label class="inline">Nudge Y <input id="legendY" type="number" value="0" step="10" /></label>
+          </div>
+          <label class="inline">Font size <input id="legendFont" type="number" value="20" min="8" max="48" step="1" /></label>
         </div>
-        <label>Color ramp (FHWA)
-          <select id="legendRamp">
+
+        <div class="block stack">
+          <div class="block-hd">Color scale <span class="opt">per parameter</span>
+            <span class="infotip">
+              <button type="button" class="info-i" aria-label="About the color scale">i</button>
+              <span class="info-pop">The ramp, min, max &amp; interval are remembered <strong>per parameter</strong>. Set them while viewing a parameter and they're reused for it everywhere — the live figure and the Word report. Each band spans one <em>interval</em> (e.g. 0.5). Set <strong>Min</strong> to 0 to drop model artifacts like negative depths.</span>
+            </span>
+          </div>
+          <label>Color ramp (FHWA)
+            <div class="rampctl" id="rampCtl">
+              <button type="button" class="ramp-trigger" id="rampTrigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="ramp-name" id="rampTriggerName">Shear</span>
+                <span class="ramp-sw" id="rampTriggerSw"></span>
+                <span class="ramp-caret">▾</span>
+              </button>
+              <div class="ramp-menu" id="rampMenu" role="listbox" hidden></div>
+            </div>
+          </label>
+          <select id="legendRamp" class="visually-hidden" tabindex="-1" aria-hidden="true">
             <option value="topography">Topography</option>
             <option value="depth">Depth</option>
             <option value="velocity">Velocity</option>
@@ -187,16 +204,11 @@
             <option value="dvProduct">DV Product</option>
             <option value="surcharge">Surcharge</option>
           </select>
-        </label>
-        <div id="rampPreview" class="ramp-preview" title="Colors of the selected ramp (low → high)"></div>
-        <div class="subhead nb">Scale <span class="hint tiny" style="font-weight:400">— per parameter</span></div>
-        <div class="row2">
-          <label class="inline">Min <input id="legendMin" type="number" step="any" /></label>
-          <label class="inline">Max <input id="legendMax" type="number" step="any" /></label>
-        </div>
-        <div class="row2">
+          <div class="row2">
+            <label class="inline">Min <input id="legendMin" type="number" step="any" /></label>
+            <label class="inline">Max <input id="legendMax" type="number" step="any" /></label>
+          </div>
           <label class="inline">Interval <input id="legendStep" type="number" step="any" min="0" /></label>
-          <label class="inline">Font size <input id="legendFont" type="number" value="20" min="8" max="48" step="1" /></label>
         </div>
       </details>
 
