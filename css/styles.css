@@ -174,7 +174,7 @@ footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 0 
 /* annotations */
 .anno-add { display: flex; gap: 8px; }
 .anno-add button { flex: 1; }
-.anno-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fbfcfe; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.anno-card { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fafbfc; margin-top: 10px; display: flex; flex-direction: column; gap: 7px; }
 .anno-head { display: flex; align-items: center; gap: 8px; }
 .anno-head .anno-vis { width: auto; flex: none; }
 .anno-type { font-weight: 600; font-size: 0.84rem; color: #2a3650; flex: 1; }
