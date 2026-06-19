@@ -86,10 +86,10 @@ hr.divider { border: none; border-top: 2px solid var(--line); margin: 16px 0 12p
 .pan-block { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; }
 .dpad { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 30px); gap: 4px; }
 .dpad button { padding: 0; font-weight: 600; }
-#panU { grid-area: 1 / 2; }
-#panL { grid-area: 2 / 1; }
-#panR { grid-area: 2 / 3; }
-#panD { grid-area: 3 / 2; }
+#panU, .nU { grid-area: 1 / 2; }
+#panL, .nL { grid-area: 2 / 1; }
+#panR, .nR { grid-area: 2 / 3; }
+#panD, .nD { grid-area: 3 / 2; }
 
 .status { font-size: 0.84rem; color: #41506a; }
 .status div { padding: 1px 0; }
