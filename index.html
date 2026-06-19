@@ -126,7 +126,12 @@
       </details>
 
       <details class="group">
-        <summary><span class="num">3</span> <input type="checkbox" class="show-toggle" id="showLegend" checked title="Show on figure" /> Legend</summary>
+        <summary><span class="num">3</span> <input type="checkbox" class="show-toggle" id="showLegend" checked title="Show on figure" /> Legend
+          <span class="infotip">
+            <button type="button" class="info-i" aria-label="About the legend scale">i</button>
+            <span class="info-pop">The <strong>scale</strong> (min, max, interval &amp; color ramp) is remembered <strong>per parameter</strong>. Set it while viewing a parameter and it's reused for that parameter everywhere — the live figure and the Word report. Each band spans one <em>interval</em> (e.g. 0.5). Set <strong>Min</strong> to 0 to drop model artifacts like negative depths.</span>
+          </span>
+        </summary>
         <label>Position
           <select id="legendPos">
             <option value="tl">Top-left</option>
@@ -156,8 +161,13 @@
           </select>
         </label>
         <div id="rampPreview" class="ramp-preview" title="Colors of the selected ramp (low → high)"></div>
+        <div class="subhead nb">Scale <span class="hint tiny" style="font-weight:400">— per parameter</span></div>
         <div class="row2">
-          <label class="inline">Intervals <input id="legendIntervals" type="number" value="12" min="2" max="60" step="1" /></label>
+          <label class="inline">Min <input id="legendMin" type="number" step="any" /></label>
+          <label class="inline">Max <input id="legendMax" type="number" step="any" /></label>
+        </div>
+        <div class="row2">
+          <label class="inline">Interval <input id="legendStep" type="number" step="any" min="0" /></label>
           <label class="inline">Font size <input id="legendFont" type="number" value="20" min="8" max="48" step="1" /></label>
         </div>
       </details>

@@ -168,7 +168,7 @@ function buildFig(runSel, paramName) {
     condKey: key, event: eventOf(run.name), condName: condLabel(key), runText: runLabel(run.name),
     title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
     fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
-    defRamp: def.ramp, defCount: Math.max(2, Math.round((nb.max - nb.min) / nb.step)), wetMax: hi,
+    defRamp: def.ramp, defCount: Math.max(2, Math.round((nb.max - nb.min) / nb.step)), defStep: nb.step, wetMax: hi,
   };
 }
 
@@ -191,13 +191,45 @@ function updateTitlePreview() {
   $("titlePreview").textContent = scene ? figTitle(scene) : "—";
 }
 
+// ---- legend scale, stored PER PARAMETER ----
+// Each parameter (shear/velocity/depth/wse/froude) keeps its own min/max/interval
+// /ramp, so the live figure AND every report figure use the right scale. Auto
+// (data-driven) until the user edits a legend control for that parameter.
+const legendByParam = new Map();
+const legendDefaults = (fig) => ({ min: fig.range.min, max: fig.range.max, step: fig.defStep, ramp: fig.defRamp });
+function legendFor(fig) {
+  const d = legendDefaults(fig);
+  const s = legendByParam.get(fig.def.key);
+  if (!s) return d;
+  const min = isFinite(s.min) ? s.min : d.min;
+  let max = isFinite(s.max) ? s.max : d.max;
+  if (max <= min) max = min + (d.step || 1);
+  let step = isFinite(s.step) && s.step > 0 ? s.step : d.step;
+  if ((max - min) / step > 200) step = (max - min) / 200;   // guard against runaway band counts
+  return { min, max, step, ramp: s.ramp || d.ramp };
+}
+const trimNum = (v) => Number(v.toFixed(4)).toString();
+function loadLegendControls(fig) {                 // populate the legend inputs for this parameter
+  const ls = legendFor(fig);
+  $("legendMin").value = trimNum(ls.min);
+  $("legendMax").value = trimNum(ls.max);
+  $("legendStep").value = trimNum(ls.step);
+  $("legendRamp").value = ls.ramp;
+  updateRampPreview();
+}
+function storeLegend() {                           // pin the current controls to the current parameter
+  if (!scene) return;
+  legendByParam.set(scene.def.key, {
+    min: parseFloat($("legendMin").value), max: parseFloat($("legendMax").value),
+    step: parseFloat($("legendStep").value), ramp: $("legendRamp").value,
+  });
+}
+
 async function generate() {
   const sel = allRuns()[+$("run").value];
   if (!sel) return;
   scene = buildFig(sel, $("param").value);
-  $("legendIntervals").value = scene.defCount;   // seed legend controls for live edits
-  $("legendRamp").value = scene.defRamp;
-  updateRampPreview();
+  loadLegendControls(scene);                     // load this parameter's stored/auto scale
   await render();
   $("placeholder").hidden = true;
   $("figure").hidden = false;
@@ -212,10 +244,7 @@ async function render() {
   if (!scene) return;
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
   const cv = $("figure"); cv.width = frame.w; cv.height = frame.h;
-  await composeFigure(cv.getContext("2d"), frame, scene, {
-    ramp: $("legendRamp").value,
-    count: Math.min(60, Math.max(2, parseInt($("legendIntervals").value, 10) || scene.defCount)),
-  });
+  await composeFigure(cv.getContext("2d"), frame, scene);
   updateTitlePreview();
   $("download").disabled = false;
   $("download").onclick = () => {
@@ -229,13 +258,14 @@ async function render() {
 // ---- compose one figure onto any 2D context (live or off-screen for the report) ----
 // Uses the SHARED view (commonBbox + current rotation/zoom/pan/frame) and the
 // current element layout/show-toggles, so every figure is framed identically.
-async function composeFigure(ctx, frame, fig, { ramp, count }) {
+async function composeFigure(ctx, frame, fig) {
   const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
   ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
   await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });        // tiles cached across figures
   ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h);
 
-  const o = { min: fig.range.min, max: fig.range.max, interval: (fig.range.max - fig.range.min) / count, ramp };
+  const ls = legendFor(fig);                       // per-parameter scale (min/max/interval/ramp)
+  const o = { min: ls.min, max: ls.max, interval: ls.step, ramp: ls.ramp };
 
   ctx.save();
   ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
@@ -268,11 +298,16 @@ async function composeFigure(ctx, frame, fig, { ramp, count }) {
 // ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
 for (const id of [
-  "legendPos", "legendX", "legendY", "legendFont", "legendIntervals", "legendRamp",
+  "legendPos", "legendX", "legendY", "legendFont",
   "titlePos", "titleX", "titleY", "titleFont", "titleText",
   "naPos", "naX", "naY", "naSize",
   "sbPos", "sbX", "sbY", "sbSize", "sbSegments",
 ]) $(id).addEventListener("input", () => scene && render());
+
+// legend SCALE (min/max/interval/ramp) is pinned to the current parameter and
+// reused by the report, so edit it here and it sticks for that parameter.
+for (const id of ["legendMin", "legendMax", "legendStep", "legendRamp"])
+  $(id).addEventListener("input", () => { storeLegend(); updateRampPreview(); scene && render(); });
 
 // show the selected ramp's actual colors so users know what they're choosing
 function updateRampPreview() {
@@ -281,7 +316,6 @@ function updateRampPreview() {
   const css = stops.map(([p, [r, g, b]]) => `rgb(${r},${g},${b}) ${Math.round(p * 100)}%`).join(", ");
   $("rampPreview").style.background = `linear-gradient(to right, ${css})`;
 }
-$("legendRamp").addEventListener("change", updateRampPreview);
 updateRampPreview();
 
 // title template: prefill with the default, live preview, and token chips that
@@ -483,7 +517,7 @@ async function renderFigs(figs) {
   for (let i = 0; i < figs.length; i++) {
     msg(`Rendering figure ${i + 1} of ${figs.length}…`, "ok");
     const cv = document.createElement("canvas"); cv.width = frame.w; cv.height = frame.h;
-    await composeFigure(cv.getContext("2d"), frame, figs[i], { ramp: figs[i].defRamp, count: figs[i].defCount });
+    await composeFigure(cv.getContext("2d"), frame, figs[i]);
     out.push({ fig: figs[i], canvas: cv });
   }
   return out;
