@@ -10,7 +10,34 @@ import shp from "shpjs";
 import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
 
 const $ = (id) => document.getElementById(id);
-let geom = null, datasets = null, dFile = null, ready = false;
+let ready = false;
+// per-condition meshes, keyed EX/PR/… : { geom, dFile, datasets, proj }
+// proj = reprojected mesh { N, tris, mx, my, z, bbox, latRad } (done once at load)
+const conditions = new Map();
+const getCond = (k) => { if (!conditions.has(k)) conditions.set(k, {}); return conditions.get(k); };
+const condKey = (name) => {
+  const m = /\b(EX|PR)\b/i.exec(name) || /(EX|PR)_Mesh/i.exec(name);
+  return m ? m[1].toUpperCase() : "DEFAULT";
+};
+const condLabel = (k) => ({ EX: "Existing", PR: "Proposed" }[k] || "Mesh");
+function allRuns() {                       // flat run list across complete conditions
+  const out = [];
+  for (const [key, c] of conditions) if (c.proj && c.datasets) for (const run of c.datasets.runs) out.push({ key, run, cond: c });
+  return out;
+}
+function commonBbox() {                     // union of all meshes' merc extents → shared map extent
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [, c] of conditions) if (c.proj) { const b = c.proj.bbox; x0 = Math.min(x0, b.x0); x1 = Math.max(x1, b.x1); y0 = Math.min(y0, b.y0); y1 = Math.max(y1, b.y1); }
+  return { x0, x1, y0, y1 };
+}
+function projectMesh(geom) {
+  const { lon, lat } = toLonLat(geom.xy, geom.wkt);
+  const { mx, my } = lonLatToMerc(lon, lat);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < mx.length; i++) { if (mx[i] < x0) x0 = mx[i]; if (mx[i] > x1) x1 = mx[i]; if (my[i] < y0) y0 = my[i]; if (my[i] > y1) y1 = my[i]; }
+  const latRad = (lat.reduce((a, b) => a + b, 0) / lat.length) * Math.PI / 180;
+  return { N: geom.N, tris: geom.tris, mx, my, z: geom.z, bbox: { x0, x1, y0, y1 }, latRad };
+}
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
 let overlays = [];       // [{ name, geojson, color, width, hidden }]
 let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
@@ -30,29 +57,30 @@ $("files").addEventListener("change", async (e) => {
     const fname = file.name.replace(/[^\w.]/g, "_");
     h5wasm.FS.writeFile(fname, buf);
     const h = new h5wasm.File(fname, "r");
-    if (isGeometryFile(h)) { geom = readGeometry(h); }
-    else if (isDatasetsFile(h)) { dFile = h; datasets = readDatasets(h); }
+    if (isGeometryFile(h)) { const g = readGeometry(h); getCond(condKey(g.meshName)).proj = projectMesh(g); }
+    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const c = getCond(condKey(ds.runs[0] ? ds.runs[0].name : "")); c.dFile = h; c.datasets = ds; }
   }
   refreshStatus();
 });
 
 function refreshStatus() {
-  const g = geom ? `✓ geometry (${geom.N} nodes${geom.wkt ? ", CRS ✓" : ", no CRS"})` : "— geometry .h5 missing";
-  const d = datasets ? `✓ datasets (${datasets.runs.length} runs)` : "— datasets .h5 missing";
-  setStatus(`<div>${g}</div><div>${d}</div>`);
-  if (datasets) {
-    $("run").innerHTML = datasets.runs.map((r, i) => `<option value="${i}">${runLabel(r.name)}</option>`).join("");
-    populateParams();
+  const lines = [];
+  for (const [k, c] of conditions) {
+    lines.push(`<div><strong>${condLabel(k)}:</strong> ${c.proj ? `geometry ✓ (${c.proj.N} nodes)` : "geometry ✕"} · ${c.datasets ? `datasets ✓ (${c.datasets.runs.length} runs)` : "datasets ✕"}</div>`);
   }
-  // progressive disclosure: run/parameter + Generate appear once both files are in
-  const both = !!(geom && datasets);
-  $("dataSelectors").hidden = !both;
-  $("actions").hidden = !both;
+  setStatus(lines.length ? lines.join("") : "<div>— drop the geometry + datasets .h5 for each mesh</div>");
+
+  const runs = allRuns();
+  $("run").innerHTML = runs.map((r, i) => `<option value="${i}">${runLabel(r.run.name)}</option>`).join("");
+  if (runs.length) populateParams();
+  $("dataSelectors").hidden = !runs.length;
+  $("actions").hidden = !runs.length;
 }
 
 function populateParams() {
-  const run = datasets.runs[+$("run").value];
-  const scalars = Object.keys(run.params).filter((p) => !run.params[p].vector);
+  const sel = allRuns()[+$("run").value];
+  if (!sel) return;
+  const scalars = Object.keys(sel.run.params).filter((p) => !sel.run.params[p].vector);
   $("param").innerHTML = scalars.map((p) => `<option value="${p}">${paramDef(p).label}</option>`).join("");
 }
 $("run").addEventListener("change", populateParams);
@@ -117,15 +145,13 @@ $("generate").addEventListener("click", async () => {
 });
 
 async function generate() {
-  const run = datasets.runs[+$("run").value];
+  const sel = allRuns()[+$("run").value];
+  if (!sel) return;
+  const { run, cond } = sel;
   const paramName = $("param").value;
   const def = paramDef(paramName);
-  const values = finalTimestep(dFile, run.name, paramName);
+  const values = finalTimestep(cond.dFile, run.name, paramName);
 
-  const { lon, lat } = toLonLat(geom.xy, geom.wkt);
-  const { mx, my } = lonLatToMerc(lon, lat);
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (let i = 0; i < mx.length; i++) { if (mx[i] < x0) x0 = mx[i]; if (mx[i] > x1) x1 = mx[i]; if (my[i] < y0) y0 = my[i]; if (my[i] > y1) y1 = my[i]; }
   let lo = Infinity, hi = -Infinity;
   for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
   // auto-scale to the data as it comes from SMS (nice rounded bounds for a clean legend)
@@ -135,8 +161,7 @@ async function generate() {
   $("legendRamp").value = def.ramp; // SMS-default ramp for this parameter (user can change)
 
   scene = {
-    mx, my, tris: geom.tris, values, def, paramName, range,
-    bbox: { x0, x1, y0, y1 }, latRad: (lat.reduce((a, b) => a + b, 0) / lat.length) * Math.PI / 180,
+    proj: cond.proj, values, def, paramName, range,
     title: `${runLabel(run.name)} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
     fileBase: `${runLabel(run.name).replace(/\W+/g, "_")}_${def.key}`,
     wetMax: hi,
@@ -156,7 +181,7 @@ async function render() {
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
   const cv = $("figure"); cv.width = frame.w; cv.height = frame.h;
   const ctx = cv.getContext("2d");
-  const view = makeView(scene.bbox, { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
+  const view = makeView(commonBbox(), { w: frame.w, h: frame.h, rotDeg, zoom, panX, panY });
 
   // neutral backdrop (only visible if a tile fails); full-bleed otherwise
   ctx.fillStyle = "#e7ebf0"; ctx.fillRect(0, 0, frame.w, frame.h);
@@ -173,9 +198,9 @@ async function render() {
   // contours, rotated with the map (shares the panned origin)
   ctx.save();
   ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
-  const N = scene.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
-  for (let i = 0; i < N; i++) { const p = view.toLocal(scene.mx[i], scene.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
-  fillMesh(ctx, lx, ly, scene.tris, scene.values, makeColorFn(scene.paramName, o));
+  const N = scene.proj.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
+  for (let i = 0; i < N; i++) { const p = view.toLocal(scene.proj.mx[i], scene.proj.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
+  fillMesh(ctx, lx, ly, scene.proj.tris, scene.values, makeColorFn(scene.paramName, o));
   drawOverlays(ctx, overlays, view); // shapefile overlays ride the same transform
   ctx.restore();
 
@@ -197,7 +222,7 @@ async function render() {
   });
   if (on("showScale")) drawScaleBar(ctx, {
     ...F, anchor: $("sbPos").value, offX: num("sbX", 0), offY: num("sbY", 0),
-    ftPerPixel: ftPerPixel(view, scene.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
+    ftPerPixel: ftPerPixel(view, scene.proj.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
   });
 
   $("download").disabled = false;
