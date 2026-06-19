@@ -100,43 +100,56 @@
 
       <div id="customize" hidden>
       <details class="group">
-        <summary><span class="num">2</span> Frame &amp; basemap</summary>
-        <label>Frame orientation
-          <select id="orientation">
-            <option value="landscape">Landscape (11 × 8.5)</option>
-            <option value="portrait">Portrait (8.5 × 11)</option>
-          </select>
-        </label>
+        <summary><span class="num">2</span> Frame &amp; view</summary>
 
-        <div class="subhead">Basemap
-          <span class="infotip">
-            <button type="button" class="info-i" aria-label="About the basemap controls">i</button>
-            <span class="info-pop">Esri World Imagery. Rotate, zoom and pan move the aerial and the result together.</span>
-          </span>
-        </div>
-
-        <div class="ctrl-row">
-          <span class="ctrl-lbl">Rotate</span>
-          <button id="rotCCW" title="Rotate 90° counter-clockwise">⟲ 90°</button>
-          <button id="rotCW" title="Rotate 90° clockwise">⟳ 90°</button>
-          <label class="inline">angle <input id="rot" type="number" value="0" step="5" /> °</label>
-        </div>
-
-        <div class="ctrl-row">
-          <span class="ctrl-lbl">Zoom</span>
-          <button id="zoomIn" title="Zoom in">＋</button>
-          <button id="zoomOut" title="Zoom out">－</button>
-          <button id="viewReset" class="reset" title="Reset zoom, pan and rotation">Reset view</button>
-        </div>
-
-        <div class="pan-block">
-          <span class="ctrl-lbl">Pan</span>
-          <div class="dpad">
-            <button id="panU" title="Pan up">▲</button>
-            <button id="panL" title="Pan left">◀</button>
-            <button id="panD" title="Pan down">▼</button>
-            <button id="panR" title="Pan right">▶</button>
+        <div class="block">
+          <div class="block-hd">Frame
+            <span class="infotip">
+              <button type="button" class="info-i" aria-label="About the frame">i</button>
+              <span class="info-pop">Paper size &amp; orientation of the figure — <strong>Landscape</strong> (11 × 8.5) or <strong>Portrait</strong> (8.5 × 11). This sets the figure's shape and the Word report's page orientation.</span>
+            </span>
           </div>
+          <label>Orientation
+            <select id="orientation">
+              <option value="landscape">Landscape (11 × 8.5)</option>
+              <option value="portrait">Portrait (8.5 × 11)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="block">
+          <div class="block-hd">Map view
+            <span class="infotip">
+              <button type="button" class="info-i" aria-label="About the map view controls">i</button>
+              <span class="info-pop">Esri World Imagery aerial. <strong>Rotate</strong>, <strong>zoom</strong> and <strong>pan</strong> move the aerial and the result together; <strong>Reset view</strong> returns to the default framing.</span>
+            </span>
+          </div>
+
+          <div class="ctrl-row">
+            <span class="ctrl-lbl">Rotate</span>
+            <button id="rotCCW" title="Rotate 90° counter-clockwise">⟲ 90°</button>
+            <button id="rotCW" title="Rotate 90° clockwise">⟳ 90°</button>
+            <label class="inline">angle <input id="rot" type="number" value="0" step="5" /> °</label>
+          </div>
+
+          <div class="view-row">
+            <div class="vg">
+              <span class="ctrl-lbl">Zoom</span>
+              <button id="zoomIn" title="Zoom in">＋</button>
+              <button id="zoomOut" title="Zoom out">－</button>
+            </div>
+            <div class="vg pan-block">
+              <span class="ctrl-lbl">Pan</span>
+              <div class="dpad">
+                <button id="panU" title="Pan up">▲</button>
+                <button id="panL" title="Pan left">◀</button>
+                <button id="panD" title="Pan down">▼</button>
+                <button id="panR" title="Pan right">▶</button>
+              </div>
+            </div>
+          </div>
+
+          <button id="viewReset" class="reset-all" title="Reset rotation, zoom and pan">Reset view</button>
         </div>
       </details>
 
