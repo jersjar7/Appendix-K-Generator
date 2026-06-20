@@ -2,7 +2,7 @@ import * as h5wasm from "../vendor/h5wasm/hdf5_hl.js";
 import { readGeometry, readDatasets, finalTimestep, isGeometryFile, isDatasetsFile } from "./h5.js";
 import { toLonLat, lonLatToMerc } from "./geo.js";
 import { makeColorFn, legendBands, paramDef, RAMPS, RAMP_OPTIONS } from "./ramps.js";
-import { fillMesh } from "./contour.js";
+import { fillMesh, strokeMesh } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
@@ -107,7 +107,9 @@ function populateParams() {
   const sel = allRuns()[+$("run").value];
   if (!sel) return;
   const scalars = Object.keys(sel.run.params).filter((p) => !sel.run.params[p].vector);
-  $("param").innerHTML = scalars.map((p) => `<option value="${p}">${paramDef(p).label}</option>`).join("");
+  const opts = scalars.map((p) => `<option value="${p}">${paramDef(p).label}</option>`);
+  opts.push(`<option value="${TOPO}">Topography</option>`, `<option value="${MESH}">Mesh elements</option>`);
+  $("param").innerHTML = opts.join("");
 }
 $("run").addEventListener("change", populateParams);
 
@@ -183,10 +185,39 @@ $("generate").addEventListener("click", async () => {
 
 const eventOf = (name) => name.replace(/\(SRH-2D\)/i, "").replace(/^(EX|PR)\b/i, "").trim();
 
+// Geometry-based figure types (run-independent): bed elevation + mesh wireframe.
+const TOPO = "__topo__", MESH = "__mesh__";
+const isStaticParam = (p) => p === TOPO || p === MESH;
+
+// A figure built from the mesh geometry alone (same for every run of a
+// condition): Topography (color by Z) or Mesh elements (wireframe).
+function buildStaticFig({ cond, key }, { paramName, values = null, def, mesh = false }) {
+  let nb = { min: 0, max: 1, step: 1 };
+  if (values) {
+    let lo = Infinity, hi = -Infinity;
+    for (const v of values) if (v > -900) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    nb = niceBounds(lo, hi);
+  }
+  const cn = condLabel(key);
+  return {
+    proj: cond.proj, values, def, paramName, mesh, static: true,
+    range: { min: nb.min, max: nb.max },
+    condKey: key, event: "", condName: cn, runText: cn,
+    title: `${cn} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
+    fileBase: `${cn.replace(/\W+/g, "_")}_${def.key}`,
+    defRamp: def.ramp, defCount: Math.max(2, Math.round((nb.max - nb.min) / (nb.step || 1))), defStep: nb.step || 1,
+    wetMax: nb.max,
+  };
+}
+
 // Build the data for one figure (run + parameter) — used by the live view AND
 // the batch report. Auto-scales the legend to that figure's data.
 function buildFig(runSel, paramName) {
   const { run, cond, key } = runSel;
+  if (paramName === TOPO) return buildStaticFig(runSel, { paramName: TOPO, values: cond.proj.z,
+    def: { key: "topography", label: "Topography", units: "ft", ramp: "topography" } });
+  if (paramName === MESH) return buildStaticFig(runSel, { paramName: MESH, mesh: true,
+    def: { key: "mesh", label: "Mesh elements", units: "", ramp: "velocity" } });
   const def = paramDef(paramName);
   const values = finalTimestep(cond.dFile, run.name, paramName);
   let lo = Infinity, hi = -Infinity;
@@ -265,7 +296,9 @@ async function generate() {
   $("download").hidden = false;
   $("customize").hidden = false;
   if (typeof refreshReport === "function") refreshReport();
-  msg(`Generated ${scene.title}. Wet max ${scene.wetMax.toFixed(2)} ${scene.def.units}.`, "ok");
+  msg(scene.static
+    ? `Generated ${figTitle(scene)}.`
+    : `Generated ${figTitle(scene)}. Wet max ${scene.wetMax.toFixed(2)} ${scene.def.units}.`, "ok");
 }
 
 // ---- render the live figure (reads the legend ramp/intervals the user edits) ----
@@ -300,7 +333,8 @@ async function composeFigure(ctx, frame, fig) {
   ctx.translate(view.originX, view.originY); ctx.rotate(view.rotRad);
   const N = fig.proj.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
   for (let i = 0; i < N; i++) { const p = view.toLocal(fig.proj.mx[i], fig.proj.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
-  fillMesh(ctx, lx, ly, fig.proj.tris, fig.values, makeColorFn(fig.paramName, o));
+  if (fig.mesh) strokeMesh(ctx, lx, ly, fig.proj.tris);            // wireframe (Mesh elements)
+  else fillMesh(ctx, lx, ly, fig.proj.tris, fig.values, makeColorFn(fig.paramName, o));
   drawOverlays(ctx, overlays, view);
   ctx.restore();
   drawOverlayLabels(ctx, overlays, view);
@@ -311,7 +345,7 @@ async function composeFigure(ctx, frame, fig) {
   if (on("showTitle")) drawTitle(ctx, figTitle(fig), {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
-  if (on("showLegend")) drawLegend(ctx, legendBands(fig.paramName, o), {
+  if (on("showLegend") && !fig.mesh) drawLegend(ctx, legendBands(fig.paramName, o), {  // mesh has no color scale
     ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
   });
   if (on("showNorth")) drawNorthArrow(ctx, {
@@ -536,6 +570,7 @@ function evRank(e) {
 function availableParams() {
   const m = new Map();
   for (const { run } of allRuns()) for (const p of Object.keys(run.params)) if (!run.params[p].vector) m.set(p, paramDef(p).label);
+  m.set(TOPO, "Topography"); m.set(MESH, "Mesh elements");   // geometry-based, always available
   return [...m.entries()];
 }
 
@@ -551,9 +586,17 @@ function selectedFigs() {
   const params = [...document.querySelectorAll(".rp-param:checked")].map((c) => c.value);
   const runs = allRuns();
   const figs = [];
+  const staticDone = new Set();                     // topo/mesh render once per condition, not per run
   for (const c of document.querySelectorAll(".rp-run:checked")) {
     const sel = runs[+c.value];
-    for (const p of params) if (sel.run.params[p] && !sel.run.params[p].vector) figs.push(buildFig(sel, p));
+    for (const p of params) {
+      if (isStaticParam(p)) {
+        const k = p + "|" + sel.key;
+        if (!staticDone.has(k)) { staticDone.add(k); figs.push(buildFig(sel, p)); }
+      } else if (sel.run.params[p] && !sel.run.params[p].vector) {
+        figs.push(buildFig(sel, p));
+      }
+    }
   }
   const mode = $("rpOrganize").value;
   const byP = (f) => PARAM_ORDER[f.def.key] ?? 9, byC = (f) => COND_ORDER[f.condKey] ?? 9, byE = (f) => evRank(f.event);

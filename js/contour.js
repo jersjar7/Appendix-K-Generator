@@ -41,3 +41,18 @@ export function wetTriangleCount(tris, values) {
   }
   return n;
 }
+
+// Stroke the mesh triangulation (wireframe) for "Mesh elements" figures.
+export function strokeMesh(ctx, sx, sy, tris, { color = "rgba(28,82,140,0.75)", width = 0.5 } = {}) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = tris[t], b = tris[t + 1], c = tris[t + 2];
+    ctx.moveTo(sx[a], sy[a]); ctx.lineTo(sx[b], sy[b]); ctx.lineTo(sx[c], sy[c]); ctx.closePath();
+  }
+  ctx.stroke();
+  ctx.restore();
+}
