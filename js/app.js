@@ -686,25 +686,23 @@ async function previewReport() {
     if (!built) return;
     const sz = figSizeIn(+$("rpPerPage").value);
     const pg2 = pageDims();
-    // Render each preview page as an exact scaled replica of the Word page:
-    // one px-per-inch scale drives page size, the 0.75in margins, and figures.
-    const PXW = pg2.landscape ? 900 : 680;          // page width on screen (px)
-    const scale = PXW / pg2.wIn;                     // px per inch
-    const margin = 0.75 * scale;                     // same 0.75in margin as the docx
+    // 3-wide contact sheet. Each page fills its grid column and is a fully
+    // responsive, faithful scaled replica of the Word page: relative units
+    // (aspect-ratio, % margins, % figure width, container-unit text) so it
+    // re-scales with the window and matches the .docx geometry exactly.
+    const padPct = (0.75 / pg2.wIn) * 100;            // 0.75in margins as % of page width
+    const figWPct = (sz.widthIn / sz.usableW) * 100;  // figure width as % of the content area
     const host = $("previewHost"); host.innerHTML = "";
     built.pages.forEach((pg, i) => {
       const wrap = document.createElement("div"); wrap.className = "pv-pagewrap";
       const el = document.createElement("div"); el.className = "pv-page";
-      el.style.width = PXW + "px";
-      el.style.height = pg2.hIn * scale + "px";       // exact page, not content-driven
-      el.style.padding = margin + "px";
-      el.style.gap = 0.12 * scale + "px";
+      el.style.aspectRatio = `${pg2.wIn} / ${pg2.hIn}`;   // page shape follows orientation
+      el.style.padding = padPct + "%";
       if (pg.heading) { const h = document.createElement("div"); h.className = "pv-heading"; h.textContent = pg.heading; el.appendChild(h); }
       for (const it of pg.items) {
         const fig = document.createElement("div"); fig.className = "pv-fig";
         const img = document.createElement("img"); img.src = it.canvas.toDataURL("image/png");
-        img.style.width = sz.widthIn * scale + "px";
-        img.style.height = sz.heightIn * scale + "px";
+        img.style.width = figWPct + "%";                // height auto preserves the figure aspect
         fig.appendChild(img);
         if (built.opts.captions) { const cap = document.createElement("div"); cap.className = "pv-cap"; cap.textContent = figTitle(it.fig); fig.appendChild(cap); }
         el.appendChild(fig);

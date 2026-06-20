@@ -198,14 +198,16 @@ footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 0 
 .pv-bar { background: #fff; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
 .pv-bar button { margin-left: auto; }
 .pv-hint { color: var(--muted); font-size: 0.85rem; }
-.pv-host { flex: 1; overflow: auto; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.pv-host { flex: 1; overflow: auto; padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); align-content: start; justify-items: stretch; gap: 18px; }
 /* width / height / padding / gap are set inline per page (exact scaled replica of the Word page) */
-.pv-page { background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow: hidden; flex: none; }
-.pv-pagewrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.pv-heading { font-weight: 700; font-size: 1.05rem; text-align: center; }
-.pv-fig { display: flex; flex-direction: column; align-items: center; min-height: 0; }
-.pv-fig img { display: block; border: 1px solid #e7e7e7; }
-.pv-cap { font-style: italic; font-size: 0.8rem; color: #333; text-align: center; margin-top: 4px; }
+/* each page is a responsive, faithful replica: width fills the grid cell, height
+   from aspect-ratio; padding/figure %; text in container units so it scales too */
+.pv-page { width: 100%; container-type: inline-size; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow: hidden; gap: 1.2cqw; }
+.pv-pagewrap { width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pv-heading { font-weight: 700; font-size: 2.1cqw; text-align: center; }
+.pv-fig { width: 100%; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.pv-fig img { display: block; height: auto; max-width: 100%; border: 1px solid #e7e7e7; }
+.pv-cap { font-style: italic; font-size: 1.5cqw; color: #333; text-align: center; margin-top: 0.4cqw; }
 .pv-num { color: #dfe6f0; font-size: 0.72rem; }
 
 @media (max-width: 1000px) {
