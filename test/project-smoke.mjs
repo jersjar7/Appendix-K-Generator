@@ -36,9 +36,18 @@ try {
   const openGroups = () => page.evaluate(() => document.querySelectorAll("details").forEach((d) => (d.open = true)));
   await openGroups();
 
+  // Bulk-add labels from a comma-separated string — should create 3 cards in order.
+  await page.fill("#bulkLabels", "BULK A, BULK B, BULK C");
+  await page.click("#addBulkLabels");
+  await page.waitForFunction(() => document.querySelectorAll(".anno-card").length === 3);
+  const bulkTexts = await page.locator(".anno-card .anno-text").evaluateAll((els) => els.map((e) => e.value));
+  if (bulkTexts.join("|") !== "BULK A|BULK B|BULK C") fail(`bulk labels wrong/disordered: ${bulkTexts.join("|")}`);
+  if (await page.locator("#bulkLabels").inputValue() !== "") fail("bulk input not cleared after add");
+  console.log("bulk-add OK:", bulkTexts.join(", "));
+
   // Make distinctive tweaks: add a label with custom text, rotate, set title text.
   await page.click("#addLabel");
-  await page.fill(".anno-card .anno-text", "SMOKE-TEST-LABEL");
+  await page.fill(".anno-card .anno-text >> nth=0", "SMOKE-TEST-LABEL");
   await page.fill("#titleText", "My Custom Title");
   await page.fill("#legendFont", "33");
   await page.selectOption("#orientation", { index: 1 }).catch(() => {});
@@ -64,7 +73,7 @@ try {
   // Project loaded with no data yet — annotation state is restored in the DOM even
   // though #customize is still hidden until a figure is generated.
   await page.waitForSelector(".anno-card .anno-text", { state: "attached", timeout: 5000 });
-  const labelAfterLoad = await page.locator(".anno-card .anno-text").inputValue();
+  const labelAfterLoad = await page.locator(".anno-card .anno-text").first().inputValue();
   if (labelAfterLoad !== "SMOKE-TEST-LABEL") fail(`label not restored before mesh: got "${labelAfterLoad}"`);
   const titleAfterLoad = await page.inputValue("#titleText");
   if (titleAfterLoad !== "My Custom Title") fail(`title not restored: got "${titleAfterLoad}"`);
