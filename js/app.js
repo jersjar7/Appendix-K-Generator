@@ -366,9 +366,13 @@ async function composeFigure(ctx, frame, fig) {
   if (on("showTitle")) drawTitle(ctx, figTitle(fig), {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
   });
-  if (on("showLegend") && !fig.mesh) drawLegend(ctx, legendBands(fig.paramName, o), {  // mesh has no color scale
-    ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
-  });
+  if (on("showLegend") && !fig.mesh) {                            // mesh has no color scale
+    const lb = legendBands(fig.paramName, o);
+    lb.label = fig.def.label; lb.units = fig.def.units;           // authoritative label/units (covers synthetic topo key)
+    drawLegend(ctx, lb, {
+      ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
+    });
+  }
   if (on("showNorth")) drawNorthArrow(ctx, {
     ...F, anchor: $("naPos").value, offX: num("naX", 0), offY: num("naY", 0), radius: num("naSize", 46), rotRad: view.rotRad,
   });
@@ -478,8 +482,8 @@ function addAnnotation(type) {
   const bb = commonBbox();                                       // seed at the shared-extent centroid
   const ax = isFinite(bb.x0) ? (bb.x0 + bb.x1) / 2 : 0;
   const ay = isFinite(bb.y0) ? (bb.y0 + bb.y1) / 2 : 0;
-  const base = { id: ++annoSeq, type, ax, ay, ox: 0, oy: 0, visible: true };
-  annotations.push(type === "arrow"
+  const base = { id: ++annoSeq, type, ax, ay, ox: 0, oy: 0, visible: true, open: true };
+  annotations.unshift(type === "arrow"                            // newest first (top of the list)
     ? { ...base, color: "#ff3b30", length: 140, angle: 0, thickness: 5 }
     : { ...base, color: "#000000", text: "Label", fontSize: 30, halo: false });
   renderAnnoList();
@@ -529,32 +533,41 @@ function annoCard(a, i) {
       <input type="checkbox" class="anno-vis" ${a.visible ? "checked" : ""} title="Show on figure" />
       <span class="anno-type">${isArrow ? "Arrow" : "Label"} ${i + 1}</span>
       <input type="color" class="anno-color" value="${a.color}" title="Text/arrow color" />
+      <button type="button" class="anno-expand" title="Edit this annotation" aria-expanded="${a.open ? "true" : "false"}">${a.open ? "▴" : "▾"}</button>
       <button type="button" class="anno-del" title="Delete">✕</button>
     </div>
-    ${isArrow ? `
-      <div class="row2">
-        <label class="inline">Length <input type="number" class="anno-len" value="${a.length}" min="10" max="900" step="10" /></label>
-        <label class="inline">Rotate <input type="number" class="anno-ang" value="${a.angle}" step="5" /> °</label>
+    <div class="anno-body"${a.open ? "" : " hidden"}>
+      ${isArrow ? `
+        <div class="row2">
+          <label class="inline">Length <input type="number" class="anno-len" value="${a.length}" min="10" max="900" step="10" /></label>
+          <label class="inline">Rotate <input type="number" class="anno-ang" value="${a.angle}" step="5" /> °</label>
+        </div>
+        <label class="inline">Thickness <input type="number" class="anno-th" value="${a.thickness}" min="1" max="30" step="1" /></label>`
+      : `
+        <input type="text" class="anno-text" value="${(a.text || "").replace(/"/g, "&quot;")}" placeholder="Label text" />
+        <div class="row2">
+          <label class="inline">Font size <input type="number" class="anno-font" value="${a.fontSize}" min="8" max="120" step="1" /></label>
+          <label class="chk"><input type="checkbox" class="anno-halo" ${a.halo ? "checked" : ""} /> Halo</label>
+        </div>`}
+      <div class="anno-nudge">
+        <span class="ctrl-lbl">Move</span>
+        <div class="dpad">
+          <button type="button" class="nU" title="Up">▲</button>
+          <button type="button" class="nL" title="Left">◀</button>
+          <button type="button" class="nD" title="Down">▼</button>
+          <button type="button" class="nR" title="Right">▶</button>
+        </div>
+        <button type="button" class="anno-place" title="Then click the map to drop it there">◎ Place on map</button>
       </div>
-      <label class="inline">Thickness <input type="number" class="anno-th" value="${a.thickness}" min="1" max="30" step="1" /></label>`
-    : `
-      <input type="text" class="anno-text" value="${(a.text || "").replace(/"/g, "&quot;")}" placeholder="Label text" />
-      <div class="row2">
-        <label class="inline">Font size <input type="number" class="anno-font" value="${a.fontSize}" min="8" max="120" step="1" /></label>
-        <label class="chk"><input type="checkbox" class="anno-halo" ${a.halo ? "checked" : ""} /> Halo</label>
-      </div>`}
-    <div class="anno-nudge">
-      <span class="ctrl-lbl">Move</span>
-      <div class="dpad">
-        <button type="button" class="nU" title="Up">▲</button>
-        <button type="button" class="nL" title="Left">◀</button>
-        <button type="button" class="nD" title="Down">▼</button>
-        <button type="button" class="nR" title="Right">▶</button>
-      </div>
-      <button type="button" class="anno-place" title="Then click the map to drop it there">◎ Place on map</button>
     </div>`;
   const q = (s) => card.querySelector(s);
   const upd = () => scene && render();
+  const body = q(".anno-body");
+  q(".anno-expand").addEventListener("click", (e) => {
+    a.open = !a.open; body.hidden = !a.open;
+    e.currentTarget.textContent = a.open ? "▴" : "▾";
+    e.currentTarget.setAttribute("aria-expanded", a.open ? "true" : "false");
+  });
   q(".anno-vis").addEventListener("change", (e) => { a.visible = e.target.checked; upd(); });
   q(".anno-color").addEventListener("input", (e) => { a.color = e.target.value; upd(); });
   q(".anno-del").addEventListener("click", () => removeAnnotation(a.id));
