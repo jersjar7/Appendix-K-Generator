@@ -18,21 +18,33 @@ const conditions = new Map();
 const getCond = (k) => { if (!conditions.has(k)) conditions.set(k, {}); return conditions.get(k); };
 // Decide a mesh's condition from its internal name AND the uploaded file name,
 // matching either the EX/PR abbreviation or the spelled-out word.
+// Treat start/end of string and any non-letter (so _, -, spaces, dots all count)
+// as token boundaries — robust whether or not the file name has been sanitized.
 const condKey = (name, fileName = "") => {
   const s = `${name} ${fileName}`;
-  if (/\bPR\b|PR[_-]?Mesh|propos/i.test(s)) return "PR";
-  if (/\bEX\b|EX[_-]?Mesh|exist/i.test(s)) return "EX";
+  if (/(^|[^a-z])PR([^a-z]|$)|propos/i.test(s)) return "PR";
+  if (/(^|[^a-z])EX([^a-z]|$)|exist/i.test(s)) return "EX";
   return "DEFAULT";
 };
 const condLabel = (k) => ({ EX: "Existing", PR: "Proposed" }[k] || "Mesh");
+const CONDORDER = { EX: 0, PR: 1 };
+// EX/PR are the named conditions; DEFAULT ("Mesh") is only a fallback for a lone
+// unnamed mesh. Once any named condition is present, the fallback is noise — drop
+// it so the user sees exactly the rows they dropped, ordered Existing → Proposed.
+function usableConditions() {
+  const named = [...conditions].some(([k]) => k !== "DEFAULT");
+  return [...conditions]
+    .filter(([k]) => !(named && k === "DEFAULT"))
+    .sort((a, b) => (CONDORDER[a[0]] ?? 9) - (CONDORDER[b[0]] ?? 9));
+}
 function allRuns() {                       // flat run list across complete conditions
   const out = [];
-  for (const [key, c] of conditions) if (c.proj && c.datasets) for (const run of c.datasets.runs) out.push({ key, run, cond: c });
+  for (const [key, c] of usableConditions()) if (c.proj && c.datasets) for (const run of c.datasets.runs) out.push({ key, run, cond: c });
   return out;
 }
-function commonBbox() {                     // union of all meshes' merc extents → shared map extent
+function commonBbox() {                     // union of usable meshes' merc extents → shared map extent
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const [, c] of conditions) if (c.proj) { const b = c.proj.bbox; x0 = Math.min(x0, b.x0); x1 = Math.max(x1, b.x1); y0 = Math.min(y0, b.y0); y1 = Math.max(y1, b.y1); }
+  for (const [, c] of usableConditions()) if (c.proj) { const b = c.proj.bbox; x0 = Math.min(x0, b.x0); x1 = Math.max(x1, b.x1); y0 = Math.min(y0, b.y0); y1 = Math.max(y1, b.y1); }
   return { x0, x1, y0, y1 };
 }
 function projectMesh(geom) {
@@ -60,15 +72,24 @@ const runLabel = (n) => n.replace(/\(SRH-2D\)/i, "").replace(/^EX\b/i, "Existing
 
 async function ingestMeshFiles(files) {
   if (!ready) await h5wasm.ready;
+  const unclassified = [];   // files that fell through to the DEFAULT ("Mesh") condition
   for (const file of files) {
     const buf = new Uint8Array(await file.arrayBuffer());
-    const fname = file.name.replace(/[^\w.]/g, "_");
+    const fname = file.name.replace(/[^\w.]/g, "_");   // sanitized name for the virtual FS only
     h5wasm.FS.writeFile(fname, buf);
     const h = new h5wasm.File(fname, "r");
-    if (isGeometryFile(h)) { const g = readGeometry(h); getCond(condKey(g.meshName, fname)).proj = projectMesh(g); }
-    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const c = getCond(condKey(ds.runs[0] ? ds.runs[0].name : "", fname)); c.dFile = h; c.datasets = ds; }
+    // Classify on the ORIGINAL file name (keeps the EX-/PR- delimiter intact).
+    if (isGeometryFile(h)) { const g = readGeometry(h); const k = condKey(g.meshName, file.name); if (k === "DEFAULT") unclassified.push(file.name); getCond(k).proj = projectMesh(g); }
+    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const k = condKey(ds.runs[0] ? ds.runs[0].name : "", file.name); if (k === "DEFAULT") unclassified.push(file.name); const c = getCond(k); c.dFile = h; c.datasets = ds; }
   }
   refreshStatus();
+  if (unclassified.length) {
+    const named = [...conditions].some(([k]) => k !== "DEFAULT");
+    msg(named
+      ? `Left out — couldn't read a condition from the name: ${unclassified.join(", ")}. Rename with an <code>EX-</code> or <code>PR-</code> prefix to include them.`
+      : `Couldn't read a condition from the name — treating these as a single "Mesh". Use <code>EX-</code>/<code>PR-</code> prefixes for Existing vs Proposed.`,
+      "warn");
+  }
 }
 
 // click-or-drop dropzone: a styled label triggers the hidden input; dragged
@@ -89,7 +110,7 @@ function refreshStatus() {
   const badge = (on, label, detail) =>
     `<span class="badge ${on ? "on" : ""}">${on ? "✓ " : ""}${label}${on && detail ? ` <em>${detail}</em>` : ""}</span>`;
   const rows = [];
-  for (const [k, c] of conditions) {
+  for (const [k, c] of usableConditions()) {
     rows.push(`<div class="cond-row"><span class="cond-name">${condLabel(k)}</span>` +
       badge(!!c.proj, "geometry", c.proj && `${c.proj.N} nodes`) +
       badge(!!c.datasets, "datasets", c.datasets && `${c.datasets.runs.length} runs`) + `</div>`);
