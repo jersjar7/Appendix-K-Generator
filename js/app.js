@@ -122,6 +122,7 @@ function refreshStatus() {
   if (runs.length) populateParams();
   $("dataSelectors").hidden = !runs.length;
   $("actions").hidden = !runs.length;
+  if (typeof restoreSelection === "function") restoreSelection();   // resume a loaded project once data arrives
 }
 
 function populateParams() {
@@ -589,6 +590,110 @@ function annoCard(a, i) {
 }
 $("addLabel").addEventListener("click", () => addAnnotation("label"));
 $("addArrow").addEventListener("click", () => addAnnotation("arrow"));
+
+// =================== save / load project ===================
+// A project file captures everything EXCEPT the heavy mesh .h5 data: annotations,
+// overlays (as GeoJSON), per-parameter legend scales, the view, every block
+// setting, and the run/parameter selection. Re-drop the .h5 files on open and the
+// figure rebuilds with all tweaks intact (annotation anchors are absolute mercator
+// coords, so they snap back exactly).
+const PROJECT_FORMAT = "appendix-k-generator";
+// Data-independent control values to persist (legend min/max/step/ramp are derived
+// from legendByParam, so they're restored from there instead).
+const PROJECT_CONTROLS = [
+  "orientation",
+  "showLegend", "legendPos", "legendX", "legendY", "legendFont",
+  "showTitle", "titleText", "titlePos", "titleX", "titleY", "titleFont",
+  "showNorth", "naPos", "naX", "naY", "naSize",
+  "showScale", "sbPos", "sbX", "sbY", "sbSize", "sbSegments",
+  "showAnnos", "rpOrganize", "rpPerPage", "rpCaption", "rpHeadings",
+];
+const readControl = (id) => { const el = $(id); return el ? (el.type === "checkbox" ? el.checked : el.value) : undefined; };
+const writeControl = (id, v) => { const el = $(id); if (!el || v === undefined) return; if (el.type === "checkbox") el.checked = !!v; else el.value = v; };
+
+let pendingSelection = null;   // run/param to re-apply once mesh data is present
+
+function collectProject() {
+  const controls = {};
+  for (const id of PROJECT_CONTROLS) { const v = readControl(id); if (v !== undefined) controls[id] = v; }
+  const legend = {};
+  for (const [k, v] of legendByParam) legend[k] = v;
+  const sel = allRuns()[+$("run").value];
+  return {
+    app: PROJECT_FORMAT, version: 1,
+    view: { rotDeg, zoom, panX, panY },
+    selection: sel ? { run: sel.run.name, param: $("param").value } : (scene ? null : pendingSelection),
+    controls, legend, annoSeq, annotations,
+    overlays: overlays.map((o) => ({
+      name: o.name, geojson: o.geojson, color: o.color, width: o.width,
+      hidden: o.hidden, open: o.open, labelField: o.labelField, labelSize: o.labelSize, fields: o.fields,
+    })),
+  };
+}
+
+function saveProject() {
+  const blob = new Blob([JSON.stringify(collectProject())], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `appendix-k-${new Date().toISOString().slice(0, 10)}.akproj`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  msg("Project saved. Re-open it any time with “Load project”, then re-drop your <code>.h5</code> mesh files.", "ok");
+}
+
+async function loadProjectFile(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); }
+  catch { return msg("That file isn't a valid project file (couldn't parse it).", "err"); }
+  if (!data || data.app !== PROJECT_FORMAT) return msg("That doesn't look like an Appendix K project file.", "err");
+  applyProject(data);
+}
+
+function applyProject(data) {
+  for (const id in (data.controls || {})) writeControl(id, data.controls[id]);
+  const v = data.view || {};
+  rotDeg = v.rotDeg || 0; zoom = v.zoom || 1; panX = v.panX || 0; panY = v.panY || 0;
+  legendByParam.clear();
+  for (const k in (data.legend || {})) legendByParam.set(k, data.legend[k]);
+  annotations = Array.isArray(data.annotations) ? data.annotations : [];
+  annoSeq = data.annoSeq || annotations.reduce((m, a) => Math.max(m, a.id || 0), 0);
+  overlays = Array.isArray(data.overlays) ? data.overlays.map((o) => ({
+    name: o.name, geojson: o.geojson, color: o.color, width: o.width ?? 3,
+    hidden: !!o.hidden, open: !!o.open, labelField: o.labelField || "",
+    labelSize: o.labelSize ?? 22, fields: o.fields || (o.geojson ? propKeys(o.geojson) : []),
+  })) : [];
+  pendingSelection = data.selection || null;
+  renderOverlayList();
+  renderAnnoList();
+  updateTitlePreview();
+  // If mesh data is already loaded, restore the selection and rebuild now; otherwise
+  // restoreSelection() is a no-op and fires later from refreshStatus after the .h5 drop.
+  const built = restoreSelection();
+  if (!built && scene) render();           // refresh the existing figure with restored tweaks
+  msg(allRuns().length
+    ? "Project loaded — figure rebuilt with your saved settings."
+    : "Project loaded. Re-drop your <code>.h5</code> mesh files to rebuild the figure with these settings.", "ok");
+}
+
+// Re-apply the saved run/parameter once the matching mesh data is present.
+// Returns true if it (re)generated the figure. Called from applyProject and, for
+// the deferred case, from refreshStatus after files are ingested.
+function restoreSelection() {
+  if (!pendingSelection) return false;
+  const runs = allRuns();
+  if (!runs.length) return false;                                 // data not loaded yet — stay pending
+  const idx = runs.findIndex((r) => r.run.name === pendingSelection.run);
+  if (idx >= 0) { $("run").value = String(idx); populateParams(); }
+  const opts = [...$("param").options].map((o) => o.value);
+  if (opts.includes(pendingSelection.param)) $("param").value = pendingSelection.param;
+  pendingSelection = null;
+  generate();
+  return true;
+}
+
+$("saveProject").addEventListener("click", saveProject);
+$("loadProject").addEventListener("click", () => $("projectFile").click());
+$("projectFile").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) loadProjectFile(f); e.target.value = ""; });
 
 // =================== report builder ===================
 const condLabelFull = (k) => ({ EX: "Existing Conditions", PR: "Proposed Conditions" }[k] || "Conditions");
