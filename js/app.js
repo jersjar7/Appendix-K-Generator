@@ -479,16 +479,32 @@ document.querySelectorAll(".show-toggle").forEach((cb) => {
 });
 
 // =================== annotations: map-anchored labels + arrows ===================
+const seedAnchor = () => {                                       // shared-extent centroid
+  const bb = commonBbox();
+  return { ax: isFinite(bb.x0) ? (bb.x0 + bb.x1) / 2 : 0, ay: isFinite(bb.y0) ? (bb.y0 + bb.y1) / 2 : 0 };
+};
 function addAnnotation(type) {
-  const bb = commonBbox();                                       // seed at the shared-extent centroid
-  const ax = isFinite(bb.x0) ? (bb.x0 + bb.x1) / 2 : 0;
-  const ay = isFinite(bb.y0) ? (bb.y0 + bb.y1) / 2 : 0;
-  const base = { id: ++annoSeq, type, ax, ay, ox: 0, oy: 0, visible: true, open: true };
+  const base = { id: ++annoSeq, type, ...seedAnchor(), ox: 0, oy: 0, visible: true, open: true };
   annotations.unshift(type === "arrow"                            // newest first (top of the list)
     ? { ...base, color: "#ff3b30", length: 140, angle: 0, thickness: 5 }
     : { ...base, color: "#000000", text: "Label", fontSize: 30, halo: false });
   renderAnnoList();
   scene && render();
+}
+// Bulk-add: one label per comma-separated value, kept in typed order at the top of
+// the list. Collapsed by default (text is already set) and cascaded a few px each so
+// the stack isn't perfectly overlapping before you place them.
+function addLabels(csv) {
+  const texts = (csv || "").split(",").map((t) => t.trim()).filter(Boolean);
+  if (!texts.length) return 0;
+  const made = texts.map((text, i) => ({
+    id: ++annoSeq, type: "label", ...seedAnchor(), ox: i * 18, oy: i * 18,
+    visible: true, open: false, color: "#000000", text, fontSize: 30, halo: false,
+  }));
+  annotations = [...made, ...annotations];
+  renderAnnoList();
+  scene && render();
+  return made.length;
 }
 let placingId = null;                                           // annotation awaiting a map click
 function beginPlacing(id) {
@@ -590,6 +606,14 @@ function annoCard(a, i) {
 }
 $("addLabel").addEventListener("click", () => addAnnotation("label"));
 $("addArrow").addEventListener("click", () => addAnnotation("arrow"));
+function submitBulkLabels() {
+  const n = addLabels($("bulkLabels").value);
+  if (!n) return msg("Type one or more label texts separated by commas, e.g. PR 10+47, PR 11+41.", "warn");
+  $("bulkLabels").value = "";
+  msg(`Added ${n} label${n > 1 ? "s" : ""}. Expand each and click “Place on map” (or nudge) to position it.`, "ok");
+}
+$("addBulkLabels").addEventListener("click", submitBulkLabels);
+$("bulkLabels").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitBulkLabels(); } });
 
 // =================== save / load project ===================
 // A project file captures everything EXCEPT the heavy mesh .h5 data: annotations,
