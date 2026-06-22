@@ -133,6 +133,7 @@ hr.divider { border: none; border-top: 2px solid var(--line); margin: 16px 0 12p
 #messages { margin-bottom: 10px; }
 .msg-ok { background: #e6f4ea; border: 1px solid #b7e0c4; padding: 8px 10px; border-radius: 6px; }
 .msg-err { background: #fdecea; border: 1px solid #f3b6ae; padding: 8px 10px; border-radius: 6px; }
+.msg-warn { background: #fff4e0; border: 1px solid #f0d39a; padding: 8px 10px; border-radius: 6px; }
 #result { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 #figure { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 #placeholder { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 480px; padding: 40px; color: var(--muted); font-size: 1.05rem; line-height: 1.5; border: 2px dashed var(--line); border-radius: 8px; }
