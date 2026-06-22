@@ -11,8 +11,17 @@
 </head>
 <body>
   <header>
-    <h1>Appendix K Generator</h1>
-    <p class="sub">Drop your SRH-2D mesh exports, get plan-view result figures over an aerial — all in your browser. Nothing is uploaded.</p>
+    <div class="header-row">
+      <div>
+        <h1>Appendix K Generator</h1>
+        <p class="sub">Drop your SRH-2D mesh exports, get plan-view result figures over an aerial — all in your browser. Nothing is uploaded.</p>
+      </div>
+      <div class="header-actions">
+        <button id="saveProject" class="ghost" type="button" title="Download a project file with all your tweaks, labels, overlays, and settings">Save project</button>
+        <button id="loadProject" class="ghost" type="button" title="Restore a saved project file (re-drop your .h5 mesh files to see the figure)">Load project</button>
+        <input type="file" id="projectFile" accept=".akproj,.json" hidden />
+      </div>
+    </div>
   </header>
 
   <div class="dashboard">
