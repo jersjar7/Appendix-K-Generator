@@ -130,7 +130,8 @@ function populateParams() {
   if (!sel) return;
   const scalars = Object.keys(sel.run.params).filter((p) => !sel.run.params[p].vector);
   const opts = scalars.map((p) => `<option value="${p}">${paramDef(p).label}</option>`);
-  opts.push(`<option value="${TOPO}">Topography</option>`, `<option value="${MESH}">Mesh elements</option>`);
+  opts.push(`<option value="${TOPO}">Topography</option>`, `<option value="${MESH}">Mesh elements</option>`,
+    `<option value="${TOPOMESH}">Topography + mesh elements</option>`);
   $("param").innerHTML = opts.join("");
 }
 $("run").addEventListener("change", populateParams);
@@ -207,13 +208,16 @@ $("generate").addEventListener("click", async () => {
 
 const eventOf = (name) => name.replace(/\(SRH-2D\)/i, "").replace(/^(EX|PR)\b/i, "").trim();
 
-// Geometry-based figure types (run-independent): bed elevation + mesh wireframe.
-const TOPO = "__topo__", MESH = "__mesh__";
-const isStaticParam = (p) => p === TOPO || p === MESH;
+// Geometry-based figure types (run-independent): bed elevation, mesh wireframe,
+// and bed elevation with the mesh wireframe drawn on top.
+const TOPO = "__topo__", MESH = "__mesh__", TOPOMESH = "__topomesh__";
+const isStaticParam = (p) => p === TOPO || p === MESH || p === TOPOMESH;
 
-// A figure built from the mesh geometry alone (same for every run of a
-// condition): Topography (color by Z) or Mesh elements (wireframe).
-function buildStaticFig({ cond, key }, { paramName, values = null, def, mesh = false }) {
+// A figure built from the mesh geometry alone (same for every run of a condition):
+// Topography (color by Z), Mesh elements (wireframe), or both. `meshOverlay` strokes
+// the wireframe over the topography fill; `legendLabel`/`legendUnits` let the legend
+// describe just the color scale (elevation) when the figure title says more.
+function buildStaticFig({ cond, key }, { paramName, values = null, def, mesh = false, meshOverlay = false, legendLabel = null, legendUnits = null }) {
   let nb = { min: 0, max: 1, step: 1 };
   if (values) {
     let lo = Infinity, hi = -Infinity;
@@ -222,7 +226,7 @@ function buildStaticFig({ cond, key }, { paramName, values = null, def, mesh = f
   }
   const cn = condLabel(key);
   return {
-    proj: cond.proj, values, def, paramName, mesh, static: true,
+    proj: cond.proj, values, def, paramName, mesh, meshOverlay, legendLabel, legendUnits, static: true,
     range: { min: nb.min, max: nb.max },
     condKey: key, event: "", condName: cn, runText: cn,
     title: `${cn} — ${def.label}${def.units ? " (" + def.units + ")" : ""}`,
@@ -240,6 +244,9 @@ function buildFig(runSel, paramName) {
     def: { key: "topography", label: "Topography", units: "ft", ramp: "topography" } });
   if (paramName === MESH) return buildStaticFig(runSel, { paramName: MESH, mesh: true,
     def: { key: "mesh", label: "Mesh elements", units: "", ramp: "velocity" } });
+  if (paramName === TOPOMESH) return buildStaticFig(runSel, { paramName: TOPOMESH, values: cond.proj.z,
+    meshOverlay: true, legendLabel: "Topography", legendUnits: "ft",
+    def: { key: "topomesh", label: "Topography + mesh elements", units: "ft", ramp: "topography" } });
   const def = paramDef(paramName);
   const values = finalTimestep(cond.dFile, run.name, paramName);
   let lo = Infinity, hi = -Infinity;
@@ -356,7 +363,10 @@ async function composeFigure(ctx, frame, fig) {
   const N = fig.proj.mx.length, lx = new Float64Array(N), ly = new Float64Array(N);
   for (let i = 0; i < N; i++) { const p = view.toLocal(fig.proj.mx[i], fig.proj.my[i]); lx[i] = p[0]; ly[i] = p[1]; }
   if (fig.mesh) strokeMesh(ctx, lx, ly, fig.proj.tris);            // wireframe (Mesh elements)
-  else fillMesh(ctx, lx, ly, fig.proj.tris, fig.values, makeColorFn(fig.paramName, o));
+  else {
+    fillMesh(ctx, lx, ly, fig.proj.tris, fig.values, makeColorFn(fig.paramName, o));
+    if (fig.meshOverlay) strokeMesh(ctx, lx, ly, fig.proj.tris, { color: "rgba(35,35,35,0.5)", width: 0.5 });  // mesh on top of topography
+  }
   drawOverlays(ctx, overlays, view);
   ctx.restore();
   drawOverlayLabels(ctx, overlays, view);
@@ -369,7 +379,8 @@ async function composeFigure(ctx, frame, fig) {
   });
   if (on("showLegend") && !fig.mesh) {                            // mesh has no color scale
     const lb = legendBands(fig.paramName, o);
-    lb.label = fig.def.label; lb.units = fig.def.units;           // authoritative label/units (covers synthetic topo key)
+    lb.label = fig.legendLabel ?? fig.def.label;                  // legend describes the color scale…
+    lb.units = fig.legendUnits ?? fig.def.units;                  // …(e.g. just "Topography" when the title says more)
     drawLegend(ctx, lb, {
       ...F, anchor: $("legendPos").value, offX: num("legendX", 0), offY: num("legendY", 0), fontSize: num("legendFont", 20),
     });
@@ -734,6 +745,7 @@ function availableParams() {
   const m = new Map();
   for (const { run } of allRuns()) for (const p of Object.keys(run.params)) if (!run.params[p].vector) m.set(p, paramDef(p).label);
   m.set(TOPO, "Topography"); m.set(MESH, "Mesh elements");   // geometry-based, always available
+  m.set(TOPOMESH, "Topography + mesh elements");
   return [...m.entries()];
 }
 

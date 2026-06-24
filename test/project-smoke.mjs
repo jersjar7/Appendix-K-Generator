@@ -36,6 +36,24 @@ try {
   const openGroups = () => page.evaluate(() => document.querySelectorAll("details").forEach((d) => (d.open = true)));
   await openGroups();
 
+  // "Topography + mesh elements" combined figure: the option exists, selects, and
+  // renders a non-blank canvas with the topography (not topo+mesh) legend label.
+  const hasCombo = await page.locator("#param option").evaluateAll((os) => os.some((o) => o.value === "__topomesh__" && /Topography \+ mesh/i.test(o.textContent)));
+  if (!hasCombo) fail("Topography + mesh elements option missing from #param");
+  await page.selectOption("#param", "__topomesh__");
+  await page.click("#generate");
+  // generate() posts its "Generated …" message only after render() (incl. basemap) resolves.
+  await page.waitForFunction(() => /Generated .*Topography \+ mesh/i.test(document.querySelector("#messages")?.textContent || ""), { timeout: 20000 });
+  const comboNonBlank = await page.evaluate(() => {
+    const c = document.querySelector("#figure");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    const first = [d[0], d[1], d[2]];
+    for (let i = 0; i < d.length; i += 4) if (d[i] !== first[0] || d[i + 1] !== first[1] || d[i + 2] !== first[2]) return true;
+    return false;
+  });
+  if (!comboNonBlank) fail("Topography + mesh figure rendered blank");
+  else console.log("topo+mesh combined figure OK");
+
   // Bulk-add labels from a comma-separated string — should create 3 cards in order.
   await page.fill("#bulkLabels", "BULK A, BULK B, BULK C");
   await page.click("#addBulkLabels");
