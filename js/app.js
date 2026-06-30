@@ -468,13 +468,44 @@ $("panD").addEventListener("click", () => { panY += PAN_STEP; rerender(); });
 $("viewReset").addEventListener("click", () => { zoom = 1; panX = 0; panY = 0; rotDeg = 0; $("rot").value = 0; rerender(); });
 
 // ---- info tooltips: click to pin open, click-away / Esc to close ----
+const INFO_GAP = 8, INFO_MARGIN = 12;
+function placeInfoTip(tip) {
+  const btn = tip?.querySelector(".info-i"), pop = tip?.querySelector(".info-pop");
+  if (!btn || !pop) return;
+
+  const btnRect = btn.getBoundingClientRect();
+  const previousDisplay = pop.style.display, previousVisibility = pop.style.visibility;
+  pop.style.display = "block";
+  pop.style.visibility = "hidden";
+  const popRect = pop.getBoundingClientRect();
+  pop.style.display = previousDisplay;
+  pop.style.visibility = previousVisibility;
+
+  const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+  const popW = Math.min(popRect.width, vw - INFO_MARGIN * 2);
+  const popH = Math.min(popRect.height, vh - INFO_MARGIN * 2);
+  let left = btnRect.left;
+  let top = btnRect.bottom + INFO_GAP;
+
+  if (left + popW > vw - INFO_MARGIN) left = vw - INFO_MARGIN - popW;
+  if (left < INFO_MARGIN) left = INFO_MARGIN;
+  if (top + popH > vh - INFO_MARGIN) top = btnRect.top - INFO_GAP - popH;
+  if (top < INFO_MARGIN) top = INFO_MARGIN;
+
+  tip.style.setProperty("--info-pop-left", `${Math.round(left)}px`);
+  tip.style.setProperty("--info-pop-top", `${Math.round(top)}px`);
+}
+document.querySelectorAll(".infotip").forEach((tip) => {
+  tip.addEventListener("pointerenter", () => placeInfoTip(tip));
+  tip.addEventListener("focusin", () => placeInfoTip(tip));
+});
 document.addEventListener("click", (e) => {
   const btn = e.target.closest(".info-i");
   if (btn) {
     e.preventDefault(); e.stopPropagation();          // don't toggle a parent <summary>
     const tip = btn.parentElement, isOpen = tip.classList.contains("open");
     document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
-    if (!isOpen) tip.classList.add("open");
+    if (!isOpen) { placeInfoTip(tip); tip.classList.add("open"); }
   } else if (!e.target.closest(".info-pop")) {
     document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
   }
@@ -482,6 +513,11 @@ document.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
 });
+function refreshInfoTips() {
+  document.querySelectorAll(".infotip.open, .infotip:hover").forEach((tip) => placeInfoTip(tip));
+}
+window.addEventListener("resize", refreshInfoTips);
+window.addEventListener("scroll", refreshInfoTips, true);
 
 // ---- per-element show/hide toggles (in each group header) ----
 document.querySelectorAll(".show-toggle").forEach((cb) => {
