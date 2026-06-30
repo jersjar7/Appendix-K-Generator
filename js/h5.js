@@ -4,10 +4,24 @@
 
 // ---- geometry .h5 (the "Mesh as h5" export) ----
 // Returns { meshName, N, xy:Float64[2N], z:Float32[N], tris:Uint32[3T], wkt }.
-export function readGeometry(file) {
+function hasMeshGeometry(file, base) {
+  try {
+    const nodes = file.get(`${base}/Nodes/NodeLocs`);
+    const elems = file.get(`${base}/Elements/Nodeids`);
+    return nodes.shape?.[1] >= 2 && elems.shape?.[1] >= 3;
+  } catch {
+    return false;
+  }
+}
+
+function findMeshGroup(file) {
   const mm = file.get("2DMeshModule");
-  const meshName = mm.keys().find((k) => k.endsWith("_Mesh"));
-  if (!meshName) throw new Error("No *_Mesh group found — is this the mesh-geometry .h5?");
+  return mm.keys().find((k) => hasMeshGeometry(file, `2DMeshModule/${k}`));
+}
+
+export function readGeometry(file) {
+  const meshName = findMeshGroup(file);
+  if (!meshName) throw new Error("No mesh group with Nodes/NodeLocs and Elements/Nodeids found — is this the mesh-geometry .h5?");
   const base = `2DMeshModule/${meshName}`;
 
   const nl = file.get(`${base}/Nodes/NodeLocs`);
@@ -33,7 +47,7 @@ export function readGeometry(file) {
 }
 
 export function isGeometryFile(file) {
-  try { return !!file.get("2DMeshModule").keys().find((k) => k.endsWith("_Mesh")); }
+  try { return !!findMeshGroup(file); }
   catch { return false; }
 }
 
