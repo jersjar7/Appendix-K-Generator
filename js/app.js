@@ -469,6 +469,13 @@ $("viewReset").addEventListener("click", () => { zoom = 1; panX = 0; panY = 0; r
 
 // ---- info tooltips: click to pin open, click-away / Esc to close ----
 const INFO_GAP = 8, INFO_MARGIN = 12;
+function closeInfoTip(tip) {
+  tip.classList.remove("open");
+  tip.querySelector(".info-i")?.setAttribute("aria-expanded", "false");
+}
+function closeInfoTips() {
+  document.querySelectorAll(".infotip.open").forEach(closeInfoTip);
+}
 function placeInfoTip(tip) {
   const btn = tip?.querySelector(".info-i"), pop = tip?.querySelector(".info-pop");
   if (!btn || !pop) return;
@@ -496,6 +503,10 @@ function placeInfoTip(tip) {
   tip.style.setProperty("--info-pop-top", `${Math.round(top)}px`);
 }
 document.querySelectorAll(".infotip").forEach((tip) => {
+  const btn = tip.querySelector(".info-i"), pop = tip.querySelector(".info-pop");
+  btn?.setAttribute("aria-expanded", "false");
+  btn?.setAttribute("aria-haspopup", "dialog");
+  pop?.setAttribute("role", "dialog");
   tip.addEventListener("pointerenter", () => placeInfoTip(tip));
   tip.addEventListener("focusin", () => placeInfoTip(tip));
 });
@@ -504,17 +515,21 @@ document.addEventListener("click", (e) => {
   if (btn) {
     e.preventDefault(); e.stopPropagation();          // don't toggle a parent <summary>
     const tip = btn.parentElement, isOpen = tip.classList.contains("open");
-    document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
-    if (!isOpen) { placeInfoTip(tip); tip.classList.add("open"); }
+    closeInfoTips();
+    if (!isOpen) {
+      placeInfoTip(tip);
+      tip.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
   } else if (!e.target.closest(".info-pop")) {
-    document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
+    closeInfoTips();
   }
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") document.querySelectorAll(".infotip.open").forEach((t) => t.classList.remove("open"));
+  if (e.key === "Escape") closeInfoTips();
 });
 function refreshInfoTips() {
-  document.querySelectorAll(".infotip.open, .infotip:hover").forEach((tip) => placeInfoTip(tip));
+  document.querySelectorAll(".infotip.open").forEach((tip) => placeInfoTip(tip));
 }
 window.addEventListener("resize", refreshInfoTips);
 window.addEventListener("scroll", refreshInfoTips, true);
