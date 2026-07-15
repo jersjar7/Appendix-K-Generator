@@ -53,7 +53,7 @@ function projectMesh(geom) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (let i = 0; i < mx.length; i++) { if (mx[i] < x0) x0 = mx[i]; if (mx[i] > x1) x1 = mx[i]; if (my[i] < y0) y0 = my[i]; if (my[i] > y1) y1 = my[i]; }
   const latRad = (lat.reduce((a, b) => a + b, 0) / lat.length) * Math.PI / 180;
-  return { N: geom.N, tris: geom.tris, mx, my, z: geom.z, bbox: { x0, x1, y0, y1 }, latRad };
+  return { N: geom.N, tris: geom.tris, mx, my, z: geom.z, bbox: { x0, x1, y0, y1 }, latRad, wkt: geom.wkt };
 }
 let scene = null;        // cached generated figure (so rotation/orientation are instant)
 let overlays = [];       // [{ name, geojson, color, width, hidden }]
@@ -137,10 +137,79 @@ function populateParams() {
 $("run").addEventListener("change", populateParams);
 
 // ---- overlay shapefiles (.zip) ----
+function overlayMeshWkt() {
+  for (const [, c] of usableConditions()) if (c.proj?.wkt) return c.proj.wkt;
+  return null;
+}
+
+const u16 = (a, i) => a[i] | (a[i + 1] << 8);
+const u32 = (a, i) => (a[i] | (a[i + 1] << 8) | (a[i + 2] << 16) | (a[i + 3] << 24)) >>> 0;
+function ignorePrjEntriesInZip(buf) {
+  const out = new Uint8Array(buf);
+  const dec = new TextDecoder();
+  let changed = false;
+  for (let i = 0; i < out.length - 4; i++) {
+    const sig = u32(out, i);
+    let lenAt = -1, nameAt = -1;
+    if (sig === 0x04034b50 && i + 30 <= out.length) { lenAt = i + 26; nameAt = i + 30; }      // local header
+    else if (sig === 0x02014b50 && i + 46 <= out.length) { lenAt = i + 28; nameAt = i + 46; } // central directory
+    if (lenAt < 0) continue;
+    const nameLen = u16(out, lenAt), nameEnd = nameAt + nameLen;
+    if (nameEnd > out.length) continue;
+    const name = dec.decode(out.slice(nameAt, nameEnd));
+    if (/\.prj$/i.test(name)) {
+      out[nameEnd - 1] = name.endsWith("PRJ") ? 88 : 120; // .prj -> .prx, same length
+      changed = true;
+    }
+  }
+  return { bytes: out, changed };
+}
+
+function reprojectRawOverlayWithMeshCrs(fc, wkt) {
+  const xy = [], refs = [];
+  const visit = (coords) => {
+    if (!Array.isArray(coords)) return;
+    if (typeof coords[0] === "number" && typeof coords[1] === "number") {
+      refs.push(coords); xy.push(coords[0], coords[1]);
+    } else {
+      for (const c of coords) visit(c);
+    }
+  };
+  for (const f of fc.features || []) if (f.geometry) visit(f.geometry.coordinates);
+  if (!refs.length) return fc;
+  const { lon, lat } = toLonLat(Float64Array.from(xy), wkt);
+  refs.forEach((coord, i) => { coord[0] = lon[i]; coord[1] = lat[i]; });
+  return fc;
+}
+
+async function readOverlayZip(file) {
+  const buf = await file.arrayBuffer();
+  try { return { res: await shp(buf), usedMeshCrs: false }; }       // standard path: shpjs returns lon/lat
+  catch (primaryErr) {
+    const meshWkt = overlayMeshWkt();
+    const retry = ignorePrjEntriesInZip(buf);
+    if (meshWkt && retry.changed) {
+      const res = await shp(retry.bytes);                           // raw shapefile XY, no unsupported .prj
+      const list = Array.isArray(res) ? res : [res];
+      for (const fc of list) reprojectRawOverlayWithMeshCrs(fc, meshWkt);
+      return { res: Array.isArray(res) ? list : list[0], usedMeshCrs: true, primaryErr };
+    }
+    throw primaryErr;
+  }
+}
+
+function overlayErrorText(err) {
+  const text = typeof err === "string" ? err : (err?.message || String(err ?? "Unknown error"));
+  if (/Affine Post Process|Could not get projection name|PROJCS\[/i.test(text)) {
+    return "unsupported shapefile projection. Load the matching mesh .h5 files first so the app can use the mesh CRS, or export the shapefile in WGS84.";
+  }
+  return text.length > 220 ? `${text.slice(0, 220)}…` : text;
+}
+
 async function ingestOverlayFiles(files) {
   for (const file of files) {
     try {
-      const res = await shp(await file.arrayBuffer());     // → GeoJSON (lon/lat)
+      const { res, usedMeshCrs } = await readOverlayZip(file);
       for (const fc of (Array.isArray(res) ? res : [res])) {
         overlays.push({
           name: (fc.fileName || file.name).replace(/\.zip$/i, "").split("/").pop(),
@@ -148,7 +217,8 @@ async function ingestOverlayFiles(files) {
           width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc), open: false,
         });
       }
-    } catch (err) { msg(`Could not read ${file.name}: ${err.message}`, "err"); }
+      if (usedMeshCrs) msg(`Read ${escapeHtml(file.name)} using the loaded mesh CRS because its shapefile projection is not supported directly.`, "warn");
+    } catch (err) { msg(`Could not read ${escapeHtml(file.name)}: ${escapeHtml(overlayErrorText(err))}`, "err"); }
   }
   renderOverlayList();
   if (scene) render();
