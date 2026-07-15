@@ -2,7 +2,7 @@ import * as h5wasm from "../vendor/h5wasm/hdf5_hl.js";
 import { readGeometry, readDatasets, finalTimestep, isGeometryFile, isDatasetsFile } from "./h5.js";
 import { toLonLat, lonLatToMerc } from "./geo.js";
 import { makeColorFn, legendBands, paramDef, RAMPS, RAMP_OPTIONS } from "./ramps.js";
-import { fillMesh, strokeMesh } from "./contour.js";
+import { fillMesh, strokeMesh, strokeContours } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
@@ -355,6 +355,8 @@ async function composeFigure(ctx, frame, fig) {
   await drawBasemap(ctx, view, { url: ESRI_WORLD_IMAGERY });        // tiles cached across figures
   ctx.fillStyle = "rgba(255,255,255,0.42)"; ctx.fillRect(0, 0, frame.w, frame.h);
 
+  const num = (id, d) => parseFloat($(id).value) || d;
+  const on = (id) => $(id).checked;
   const ls = legendFor(fig);                       // per-parameter scale (min/max/interval/ramp)
   const o = { min: ls.min, max: ls.max, interval: ls.step, ramp: ls.ramp };
 
@@ -365,14 +367,19 @@ async function composeFigure(ctx, frame, fig) {
   if (fig.mesh) strokeMesh(ctx, lx, ly, fig.proj.tris);            // wireframe (Mesh elements)
   else {
     fillMesh(ctx, lx, ly, fig.proj.tris, fig.values, makeColorFn(fig.paramName, o));
+    if (on("showContours")) strokeContours(ctx, lx, ly, fig.proj.tris, fig.values, {
+      min: o.min,
+      max: o.max,
+      interval: num("contourStep", o.interval),
+      color: $("contourColor").value || "rgba(17,24,39,0.85)",
+      width: num("contourWidth", 1.1),
+    });
     if (fig.meshOverlay) strokeMesh(ctx, lx, ly, fig.proj.tris, { color: "rgba(35,35,35,0.5)", width: 0.5 });  // mesh on top of topography
   }
   drawOverlays(ctx, overlays, view);
   ctx.restore();
   drawOverlayLabels(ctx, overlays, view);
 
-  const num = (id, d) => parseFloat($(id).value) || d;
-  const on = (id) => $(id).checked;
   const F = { frameW: frame.w, frameH: frame.h };
   if (on("showTitle")) drawTitle(ctx, figTitle(fig), {
     ...F, anchor: $("titlePos").value, offX: num("titleX", 0), offY: num("titleY", 0), fontSize: num("titleFont", 24),
@@ -399,10 +406,12 @@ async function composeFigure(ctx, frame, fig) {
 $("orientation").addEventListener("change", () => scene && render());
 for (const id of [
   "legendPos", "legendX", "legendY", "legendFont",
+  "contourStep", "contourColor", "contourWidth",
   "titlePos", "titleX", "titleY", "titleFont", "titleText",
   "naPos", "naX", "naY", "naSize",
   "sbPos", "sbX", "sbY", "sbSize", "sbSegments",
 ]) $(id).addEventListener("input", () => scene && render());
+$("showContours").addEventListener("change", () => scene && render());
 
 // legend SCALE (min/max/interval/ramp) is pinned to the current parameter and
 // reused by the report, so edit it here and it sticks for that parameter.
@@ -689,6 +698,7 @@ const PROJECT_FORMAT = "appendix-k-generator";
 const PROJECT_CONTROLS = [
   "orientation",
   "showLegend", "legendPos", "legendX", "legendY", "legendFont",
+  "showContours", "contourStep", "contourColor", "contourWidth",
   "showTitle", "titleText", "titlePos", "titleX", "titleY", "titleFont",
   "showNorth", "naPos", "naX", "naY", "naSize",
   "showScale", "sbPos", "sbX", "sbY", "sbSize", "sbSegments",

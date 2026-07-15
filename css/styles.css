@@ -58,6 +58,9 @@ summary .infotip, .subhead .infotip { margin-left: 6px; }
 
 .hint { color: var(--muted); font-size: 0.82rem; margin: 2px 0 8px; }
 .hint.tiny { font-size: 0.76rem; margin-top: 6px; }
+.contour-box { display: flex; flex-direction: column; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.contour-box .hint { margin: -2px 0 0; }
+.contour-color input[type=color] { width: 42px; height: 28px; padding: 2px; flex: none; }
 code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
 .howto { border: 1px solid var(--line); border-radius: 8px; padding: 2px 12px; background: #fafbfc; }
 .howto > summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--accent); padding: 8px 2px; list-style: none; user-select: none; }
