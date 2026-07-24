@@ -9,33 +9,29 @@ import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
 import shp from "shpjs";
 import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
 import { buildReportDocx } from "./reportdoc.js";
+import {
+  CONDITION_ORDER,
+  conditionKey,
+  conditionLabel as condLabel,
+  conditionLabelFull as condLabelFull,
+  eventLabel,
+  runLabel,
+} from "./conditions.js";
 
 const $ = (id) => document.getElementById(id);
 let ready = false;
-// per-condition meshes, keyed EX/PR/… : { geom, dFile, datasets, proj }
+// Per-condition meshes, keyed EX/NA/PR/… : { geom, dFile, datasets, proj }.
 // proj = reprojected mesh { N, tris, mx, my, z, bbox, latRad } (done once at load)
 const conditions = new Map();
 const getCond = (k) => { if (!conditions.has(k)) conditions.set(k, {}); return conditions.get(k); };
-// Decide a mesh's condition from its internal name AND the uploaded file name,
-// matching either the EX/PR abbreviation or the spelled-out word.
-// Treat start/end of string and any non-letter (so _, -, spaces, dots all count)
-// as token boundaries — robust whether or not the file name has been sanitized.
-const condKey = (name, fileName = "") => {
-  const s = `${name} ${fileName}`;
-  if (/(^|[^a-z])PR([^a-z]|$)|propos/i.test(s)) return "PR";
-  if (/(^|[^a-z])EX([^a-z]|$)|exist/i.test(s)) return "EX";
-  return "DEFAULT";
-};
-const condLabel = (k) => ({ EX: "Existing", PR: "Proposed" }[k] || "Mesh");
-const CONDORDER = { EX: 0, PR: 1 };
-// EX/PR are the named conditions; DEFAULT ("Mesh") is only a fallback for a lone
+// EX/NA/PR are the named conditions; DEFAULT ("Mesh") is only a fallback for a lone
 // unnamed mesh. Once any named condition is present, the fallback is noise — drop
-// it so the user sees exactly the rows they dropped, ordered Existing → Proposed.
+// it so the user sees exactly the rows they dropped in a stable condition order.
 function usableConditions() {
   const named = [...conditions].some(([k]) => k !== "DEFAULT");
   return [...conditions]
     .filter(([k]) => !(named && k === "DEFAULT"))
-    .sort((a, b) => (CONDORDER[a[0]] ?? 9) - (CONDORDER[b[0]] ?? 9));
+    .sort((a, b) => (CONDITION_ORDER[a[0]] ?? 9) - (CONDITION_ORDER[b[0]] ?? 9));
 }
 function allRuns() {                       // flat run list across complete conditions
   const out = [];
@@ -68,7 +64,6 @@ const ANNO_NUDGE = 10;   // px per annotation nudge click
 
 const setStatus = (html) => ($("fileStatus").innerHTML = html);
 const msg = (text, type = "ok") => ($("messages").innerHTML = `<div class="msg-${type}">${text}</div>`);
-const runLabel = (n) => n.replace(/\(SRH-2D\)/i, "").replace(/^EX\b/i, "Existing").replace(/^PR\b/i, "Proposed").trim();
 
 async function ingestMeshFiles(files) {
   if (!ready) await h5wasm.ready;
@@ -78,16 +73,16 @@ async function ingestMeshFiles(files) {
     const fname = file.name.replace(/[^\w.]/g, "_");   // sanitized name for the virtual FS only
     h5wasm.FS.writeFile(fname, buf);
     const h = new h5wasm.File(fname, "r");
-    // Classify on the ORIGINAL file name (keeps the EX-/PR- delimiter intact).
-    if (isGeometryFile(h)) { const g = readGeometry(h); const k = condKey(g.meshName, file.name); if (k === "DEFAULT") unclassified.push(file.name); getCond(k).proj = projectMesh(g); }
-    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const k = condKey(ds.runs[0] ? ds.runs[0].name : "", file.name); if (k === "DEFAULT") unclassified.push(file.name); const c = getCond(k); c.dFile = h; c.datasets = ds; }
+    // Classify on the ORIGINAL file name first, then the internal SMS name.
+    if (isGeometryFile(h)) { const g = readGeometry(h); const k = conditionKey(g.meshName, file.name); if (k === "DEFAULT") unclassified.push(file.name); getCond(k).proj = projectMesh(g); }
+    else if (isDatasetsFile(h)) { const ds = readDatasets(h); const k = conditionKey(ds.runs[0] ? ds.runs[0].name : "", file.name); if (k === "DEFAULT") unclassified.push(file.name); const c = getCond(k); c.dFile = h; c.datasets = ds; }
   }
   refreshStatus();
   if (unclassified.length) {
     const named = [...conditions].some(([k]) => k !== "DEFAULT");
     msg(named
-      ? `Left out — couldn't read a condition from the name: ${unclassified.join(", ")}. Rename with an <code>EX-</code> or <code>PR-</code> prefix to include them.`
-      : `Couldn't read a condition from the name — treating these as a single "Mesh". Use <code>EX-</code>/<code>PR-</code> prefixes for Existing vs Proposed.`,
+      ? `Left out — couldn't read a condition from the name: ${unclassified.join(", ")}. Rename with an <code>EX-</code>, <code>NA-</code>, or <code>PR-</code> prefix to include them.`
+      : `Couldn't read a condition from the name — treating these as a single "Mesh". Use <code>EX-</code>/<code>NA-</code>/<code>PR-</code> prefixes for Existing, Natural, or Proposed.`,
       "warn");
   }
 }
@@ -276,7 +271,7 @@ $("generate").addEventListener("click", async () => {
   finally { $("generate").disabled = false; }
 });
 
-const eventOf = (name) => name.replace(/\(SRH-2D\)/i, "").replace(/^(EX|PR)\b/i, "").trim();
+const eventOf = eventLabel;
 
 // Geometry-based figure types (run-independent): bed elevation, mesh wireframe,
 // and bed elevation with the mesh wireframe drawn on top.
@@ -862,9 +857,8 @@ $("loadProject").addEventListener("click", () => $("projectFile").click());
 $("projectFile").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) loadProjectFile(f); e.target.value = ""; });
 
 // =================== report builder ===================
-const condLabelFull = (k) => ({ EX: "Existing Conditions", PR: "Proposed Conditions" }[k] || "Conditions");
 const PARAM_ORDER = { shear: 0, velocity: 1, depth: 2, wse: 3, froude: 4 };
-const COND_ORDER = { EX: 0, PR: 1 };
+const COND_ORDER = CONDITION_ORDER;
 function evRank(e) {
   const climate = /\b20\d\d\b/.test(e);
   const nums = (e.match(/\d+/g) || []).map(Number);

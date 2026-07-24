@@ -29,7 +29,7 @@ Everything the tool needs runs client-side, so this is feasible:
 
 ## Input contract (LOCKED 2026-06-17)
 
-The user drops, **per mesh (Existing, Proposed), two XMDF `.h5` files** — the
+The user drops, **per mesh (Existing, Natural, or Proposed), two XMDF `.h5` files** — the
 shapefile route was dropped because SMS truncates its column names to 10 chars
 and mangles run identity. The two `.h5` halves snap together by node index:
 
@@ -49,7 +49,7 @@ and mangles run identity. The two `.h5` halves snap together by node index:
   per mesh (→ 1 file/mesh instead of 2).
 
 App responsibilities: auto-detect geometry vs datasets file (`NodeLocs` vs
-`Datasets/`), pair EX↔EX / PR↔PR by mesh name, title figures from the clean SMS
+`Datasets/`), pair EX↔EX / NA/NAT↔NA/NAT / PR↔PR by mesh name, title figures from the clean SMS
 dataset names, take the final timestep, draw flow arrows from the velocity
 vector. **No user naming convention required** beyond sensible SMS dataset names.
 

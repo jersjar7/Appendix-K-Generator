@@ -39,7 +39,7 @@
         <span class="prestep-title">Naming convention</span>
         <span class="infotip">
           <button type="button" class="info-i" aria-label="About the naming convention">i</button>
-          <span class="info-pop">Name your SMS simulations (or the uploaded files) with <code>EX</code> / <strong>Existing</strong> or <code>PR</code> / <strong>Proposed</strong> — that's how the app labels each run's condition (and tells the two apart). Without it, the mesh is labeled generically.</span>
+          <span class="info-pop">Name your SMS simulations (or the uploaded files) with <code>EX</code> / <strong>Existing</strong>, <code>NA</code> or <code>NAT</code> / <strong>Natural</strong>, or <code>PR</code> / <strong>Proposed</strong> — that's how the app labels and separates each condition. Without one of those names, the mesh is labeled generically.</span>
         </span>
       </div>
 
@@ -65,8 +65,8 @@
                   <li>Name it and save.</li>
                 </ol>
                 Drop the files below — any order; the app detects which is which.
-                <div class="sub-hd">Existing &amp; Proposed</div>
-                Each mesh needs those two files. For a full Appendix K comparison, upload <strong>both your Existing and Proposed meshes</strong> (up to 4 files) — the app pairs them by the <code>EX</code>/<code>PR</code> name. You can also load <strong>just one</strong> condition; the report includes whatever you upload.
+                <div class="sub-hd">Model conditions</div>
+                Each mesh needs those two files. Upload any combination of <strong>Existing, Natural, and Proposed meshes</strong> — the app pairs them by the <code>EX</code>, <code>NA</code>/<code>NAT</code>, or <code>PR</code> name. You can also load <strong>just one</strong> condition; the report includes whatever you upload.
               </span>
             </span>
           </div>
@@ -74,7 +74,7 @@
             <input id="files" type="file" accept=".h5" multiple class="visually-hidden" />
             <span class="dz-icon">⬆</span>
             <span class="dz-main">Drag the <code>.h5</code> files here</span>
-            <span class="dz-sub">or click to browse — geometry + datasets, per condition (2–4 files)</span>
+            <span class="dz-sub">or click to browse — geometry + datasets, two files per condition</span>
           </label>
           <div id="fileStatus" class="status filestatus"></div>
         </div>
@@ -363,8 +363,8 @@
           <div class="block-hd">Layout</div>
           <label>Organize by
             <select id="rpOrganize">
-              <option value="condition">By condition (Existing, then Proposed)</option>
-              <option value="comparison">By comparison (Existing &amp; Proposed together)</option>
+              <option value="condition">By condition (Existing, Natural, Proposed)</option>
+              <option value="comparison">By comparison (conditions together)</option>
               <option value="parameter">By parameter</option>
               <option value="event">By event</option>
             </select>

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "serve": "python3 -m http.server 8010",
+    "test:conditions": "node test/conditions.mjs",
     "test:node": "node test/read.mjs",
     "test:project": "node test/project-smoke.mjs",
     "test:ui": "playwright test"
