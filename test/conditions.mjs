@@ -8,6 +8,8 @@ import {
 
 assert.equal(conditionKey("Existing Mesh", "EX-Geo.h5"), "EX");
 assert.equal(conditionKey("Nat_Mesh", "Na-geo.h5"), "NA");
+assert.equal(conditionKey("", "Natural Geometry.h5"), "NA");
+assert.equal(conditionKey("", "Natural Datasets.h5"), "NA");
 assert.equal(conditionKey("Natural Conditions Mesh", "geometry.h5"), "NA");
 assert.equal(conditionKey("FHD Mesh", "PR-Geo.h5"), "PR");
 assert.equal(conditionKey("Mesh", "geometry.h5"), "DEFAULT");

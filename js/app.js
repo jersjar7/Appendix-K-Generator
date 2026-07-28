@@ -16,7 +16,7 @@ import {
   conditionLabelFull as condLabelFull,
   eventLabel,
   runLabel,
-} from "./conditions.js";
+} from "./conditions.js?v=20260728-natural";
 
 const $ = (id) => document.getElementById(id);
 let ready = false;
