@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  drawOverlayStationLabels,
   formatStation,
   stationTicksForGeojson,
 } from "../js/overlays.js";
@@ -41,5 +42,38 @@ assert.equal(formatStation(0), "0+00");
 assert.equal(formatStation(1070), "10+70");
 assert.equal(formatStation(1100), "11+00");
 assert.equal(formatStation(99.6), "1+00");
+
+function labelDrawCounts(stationLabelHalo) {
+  const counts = { fill: 0, stroke: 0 };
+  const ctx = {
+    save() {},
+    restore() {},
+    fillText() { counts.fill++; },
+    strokeText() { counts.stroke++; },
+  };
+  const view = {
+    rotRad: 0,
+    originX: 0,
+    originY: 0,
+    toLocal(x, y) { return [x, y]; },
+  };
+  drawOverlayStationLabels(ctx, [{
+    geojson: line,
+    color: "#e8112d",
+    stationing: true,
+    stationLabelHalo,
+    stationTickInterval: 100,
+    stationLabelInterval: 100,
+  }], view);
+  return counts;
+}
+
+const haloOn = labelDrawCounts(true);
+assert.ok(haloOn.fill > 0);
+assert.equal(haloOn.stroke, haloOn.fill);
+
+const haloOff = labelDrawCounts(false);
+assert.equal(haloOff.fill, haloOn.fill);
+assert.equal(haloOff.stroke, 0);
 
 console.log("Overlay stationing tests passed.");

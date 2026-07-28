@@ -15,7 +15,7 @@ import {
   describe,
   propKeys,
   OVERLAY_PALETTE,
-} from "./overlays.js?v=20260728-stationing";
+} from "./overlays.js?v=20260728-station-halo";
 import { buildReportDocx } from "./reportdoc.js";
 import {
   CONDITION_ORDER,
@@ -220,7 +220,7 @@ async function ingestOverlayFiles(files) {
           width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc), open: false,
           stationing: false, stationStart: 0, stationDirection: "forward",
           stationTickInterval: 50, stationLabelInterval: 100,
-          stationTickLength: 16, stationLabelSize: 18,
+          stationTickLength: 16, stationLabelSize: 18, stationLabelHalo: true,
         });
       }
       if (usedMeshCrs) msg(`Read ${escapeHtml(file.name)} using the loaded mesh CRS because its shapefile projection is not supported directly.`, "warn");
@@ -273,7 +273,10 @@ function renderOverlayList() {
               <label>Label every (ft)<input type="number" class="ov-station-label" value="${ov.stationLabelInterval ?? 100}" min="0.01" step="1" /></label>
               <label>Tick length (px)<input type="number" class="ov-station-length" value="${ov.stationTickLength ?? 16}" min="4" max="60" step="1" /></label>
             </div>
-            <label class="inline">Label size <input type="number" class="ov-station-size" value="${ov.stationLabelSize ?? 18}" min="8" max="48" step="1" /></label>
+            <div class="row2 ov-station-label-style">
+              <label class="inline">Label size <input type="number" class="ov-station-size" value="${ov.stationLabelSize ?? 18}" min="8" max="48" step="1" /></label>
+              <label class="chk"><input type="checkbox" class="ov-station-halo"${ov.stationLabelHalo !== false ? " checked" : ""} /> Text halo</label>
+            </div>
             <p class="hint tiny">Values increase upstream along the longest line feature. Reverse A/B if the labels increase downstream.</p>
           </div>
         </div>
@@ -299,6 +302,7 @@ function renderOverlayList() {
     li.querySelector(".ov-station-label").addEventListener("input", (e) => { ov.stationLabelInterval = Math.max(0.01, parseFloat(e.target.value) || 100); scene && render(); });
     li.querySelector(".ov-station-length").addEventListener("input", (e) => { ov.stationTickLength = Math.max(4, parseFloat(e.target.value) || 16); scene && render(); });
     li.querySelector(".ov-station-size").addEventListener("input", (e) => { ov.stationLabelSize = Math.max(8, parseFloat(e.target.value) || 18); scene && render(); });
+    li.querySelector(".ov-station-halo").addEventListener("change", (e) => { ov.stationLabelHalo = e.target.checked; scene && render(); });
     li.querySelector(".ov-del").addEventListener("click", () => { overlays.splice(i, 1); renderOverlayList(); scene && render(); });
     ul.appendChild(li);
   });
@@ -834,7 +838,7 @@ function collectProject() {
   for (const [k, v] of legendByParam) legend[k] = v;
   const sel = allRuns()[+$("run").value];
   return {
-    app: PROJECT_FORMAT, version: 2,
+    app: PROJECT_FORMAT, version: 3,
     view: { rotDeg, zoom, panX, panY },
     selection: sel ? { run: sel.run.name, param: $("param").value } : (scene ? null : pendingSelection),
     controls, legend, annoSeq, annotations,
@@ -844,6 +848,7 @@ function collectProject() {
       stationing: o.stationing, stationStart: o.stationStart, stationDirection: o.stationDirection,
       stationTickInterval: o.stationTickInterval, stationLabelInterval: o.stationLabelInterval,
       stationTickLength: o.stationTickLength, stationLabelSize: o.stationLabelSize,
+      stationLabelHalo: o.stationLabelHalo,
     })),
   };
 }
@@ -884,6 +889,7 @@ function applyProject(data) {
     stationLabelInterval: o.stationLabelInterval ?? 100,
     stationTickLength: o.stationTickLength ?? 16,
     stationLabelSize: o.stationLabelSize ?? 18,
+    stationLabelHalo: o.stationLabelHalo !== false,
   })) : [];
   pendingSelection = data.selection || null;
   renderOverlayList();

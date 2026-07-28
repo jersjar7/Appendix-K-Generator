@@ -154,6 +154,7 @@ export function drawOverlayStationLabels(ctx, overlays, view) {
     const fontSize = Math.max(8, Number(ov.stationLabelSize) || 18);
     const tickLength = Math.max(4, Number(ov.stationTickLength) || 16);
     const color = ov.stationColor || ov.color;
+    const showHalo = ov.stationLabelHalo !== false;
     ctx.save();
     ctx.font = `600 ${fontSize}px Arial, sans-serif`;
     ctx.textAlign = "center";
@@ -174,7 +175,7 @@ export function drawOverlayStationLabels(ctx, overlays, view) {
       const offset = tickLength * 0.9 + fontSize * 0.58;
       const x = point[0] + nx * offset, y = point[1] + ny * offset;
       const text = formatStation(tick.station);
-      ctx.strokeText(text, x, y);
+      if (showHalo) ctx.strokeText(text, x, y);
       ctx.fillText(text, x, y);
     }
     ctx.restore();

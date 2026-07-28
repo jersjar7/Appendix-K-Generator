@@ -89,6 +89,8 @@ code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.9
 .ov-station-body label { min-width: 0; }
 .ov-station-body input, .ov-station-body select { margin-top: 3px; }
 .ov-station-body .inline input { width: 68px; flex: none; }
+.ov-station-label-style { align-items: end; }
+.ov-station-label-style .chk { min-height: 35px; margin: 0; }
 .ov-station-body .hint { margin: 0; }
 .mini { padding: 3px 8px; font-size: 0.8rem; background: #eef2f7; }
 .hint-list { margin: 2px 0 8px; padding-left: 18px; font-size: 0.8rem; color: #41506a; line-height: 1.45; }
