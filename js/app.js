@@ -7,7 +7,15 @@ import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
 import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js?v=20260728-uniform";
 import shp from "shpjs";
-import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
+import {
+  drawOverlays,
+  drawOverlayLabels,
+  drawOverlayStationLabels,
+  drawOverlayStationTicks,
+  describe,
+  propKeys,
+  OVERLAY_PALETTE,
+} from "./overlays.js?v=20260728-stationing";
 import { buildReportDocx } from "./reportdoc.js";
 import {
   CONDITION_ORDER,
@@ -210,6 +218,9 @@ async function ingestOverlayFiles(files) {
           name: (fc.fileName || file.name).replace(/\.zip$/i, "").split("/").pop(),
           geojson: fc, color: OVERLAY_PALETTE[overlays.length % OVERLAY_PALETTE.length],
           width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc), open: false,
+          stationing: false, stationStart: 0, stationDirection: "forward",
+          stationTickInterval: 50, stationLabelInterval: 100,
+          stationTickLength: 16, stationLabelSize: 18,
         });
       }
       if (usedMeshCrs) msg(`Read ${escapeHtml(file.name)} using the loaded mesh CRS because its shapefile projection is not supported directly.`, "warn");
@@ -245,8 +256,30 @@ function renderOverlayList() {
         <label class="inline">Width <input type="number" class="ov-w" value="${ov.width}" min="1" max="12" step="1" /></label>
         <label>Label <select class="ov-label">${opts}</select></label>
         <label class="inline ov-lsize"${ov.labelField ? "" : " hidden"}>Label size <input type="number" class="ov-ls" value="${ov.labelSize}" min="8" max="60" step="1" /></label>
+        <div class="ov-station">
+          <label class="chk"><input type="checkbox" class="ov-station-show"${ov.stationing ? " checked" : ""} /> Generate station ticks</label>
+          <div class="ov-station-body"${ov.stationing ? "" : " hidden"}>
+            <label>Downstream end
+              <select class="ov-station-direction">
+                <option value="forward"${ov.stationDirection !== "reverse" ? " selected" : ""}>A — first line vertex</option>
+                <option value="reverse"${ov.stationDirection === "reverse" ? " selected" : ""}>B — last line vertex</option>
+              </select>
+            </label>
+            <div class="row2">
+              <label>Starting station (ft)<input type="number" class="ov-station-start" value="${ov.stationStart ?? 0}" step="1" /></label>
+              <label>Tick interval (ft)<input type="number" class="ov-station-tick" value="${ov.stationTickInterval ?? 50}" min="0.01" step="1" /></label>
+            </div>
+            <div class="row2">
+              <label>Label every (ft)<input type="number" class="ov-station-label" value="${ov.stationLabelInterval ?? 100}" min="0.01" step="1" /></label>
+              <label>Tick length (px)<input type="number" class="ov-station-length" value="${ov.stationTickLength ?? 16}" min="4" max="60" step="1" /></label>
+            </div>
+            <label class="inline">Label size <input type="number" class="ov-station-size" value="${ov.stationLabelSize ?? 18}" min="8" max="48" step="1" /></label>
+            <p class="hint tiny">Values increase upstream along the longest line feature. Reverse A/B if the labels increase downstream.</p>
+          </div>
+        </div>
       </div>`;
     const body = li.querySelector(".ov-body"), lsize = li.querySelector(".ov-lsize");
+    const stationBody = li.querySelector(".ov-station-body");
     li.querySelector(".ov-expand").addEventListener("click", (e) => {
       ov.open = !ov.open; body.hidden = !ov.open;
       e.currentTarget.textContent = ov.open ? "▴" : "▾";
@@ -257,6 +290,15 @@ function renderOverlayList() {
     li.querySelector(".ov-w").addEventListener("input", (e) => { ov.width = parseFloat(e.target.value) || 3; scene && render(); });
     li.querySelector(".ov-label").addEventListener("change", (e) => { ov.labelField = e.target.value; lsize.hidden = !ov.labelField; scene && render(); });
     li.querySelector(".ov-ls").addEventListener("input", (e) => { ov.labelSize = parseFloat(e.target.value) || 22; scene && render(); });
+    li.querySelector(".ov-station-show").addEventListener("change", (e) => {
+      ov.stationing = e.target.checked; stationBody.hidden = !ov.stationing; scene && render();
+    });
+    li.querySelector(".ov-station-direction").addEventListener("change", (e) => { ov.stationDirection = e.target.value; scene && render(); });
+    li.querySelector(".ov-station-start").addEventListener("input", (e) => { ov.stationStart = parseFloat(e.target.value) || 0; scene && render(); });
+    li.querySelector(".ov-station-tick").addEventListener("input", (e) => { ov.stationTickInterval = Math.max(0.01, parseFloat(e.target.value) || 50); scene && render(); });
+    li.querySelector(".ov-station-label").addEventListener("input", (e) => { ov.stationLabelInterval = Math.max(0.01, parseFloat(e.target.value) || 100); scene && render(); });
+    li.querySelector(".ov-station-length").addEventListener("input", (e) => { ov.stationTickLength = Math.max(4, parseFloat(e.target.value) || 16); scene && render(); });
+    li.querySelector(".ov-station-size").addEventListener("input", (e) => { ov.stationLabelSize = Math.max(8, parseFloat(e.target.value) || 18); scene && render(); });
     li.querySelector(".ov-del").addEventListener("click", () => { overlays.splice(i, 1); renderOverlayList(); scene && render(); });
     ul.appendChild(li);
   });
@@ -451,8 +493,10 @@ async function composeFigure(ctx, frame, fig) {
     if (fig.meshOverlay) strokeMesh(ctx, lx, ly, fig.proj.tris, { color: "rgba(35,35,35,0.5)", width: 0.5 });  // mesh on top of topography
   }
   drawOverlays(ctx, overlays, view);
+  drawOverlayStationTicks(ctx, overlays, view);
   ctx.restore();
   drawOverlayLabels(ctx, overlays, view);
+  drawOverlayStationLabels(ctx, overlays, view);
 
   const F = { frameW: frame.w, frameH: frame.h };
   if (on("showTitle")) drawTitle(ctx, figTitle(fig), {
@@ -790,13 +834,16 @@ function collectProject() {
   for (const [k, v] of legendByParam) legend[k] = v;
   const sel = allRuns()[+$("run").value];
   return {
-    app: PROJECT_FORMAT, version: 1,
+    app: PROJECT_FORMAT, version: 2,
     view: { rotDeg, zoom, panX, panY },
     selection: sel ? { run: sel.run.name, param: $("param").value } : (scene ? null : pendingSelection),
     controls, legend, annoSeq, annotations,
     overlays: overlays.map((o) => ({
       name: o.name, geojson: o.geojson, color: o.color, width: o.width,
       hidden: o.hidden, open: o.open, labelField: o.labelField, labelSize: o.labelSize, fields: o.fields,
+      stationing: o.stationing, stationStart: o.stationStart, stationDirection: o.stationDirection,
+      stationTickInterval: o.stationTickInterval, stationLabelInterval: o.stationLabelInterval,
+      stationTickLength: o.stationTickLength, stationLabelSize: o.stationLabelSize,
     })),
   };
 }
@@ -831,6 +878,12 @@ function applyProject(data) {
     name: o.name, geojson: o.geojson, color: o.color, width: o.width ?? 3,
     hidden: !!o.hidden, open: !!o.open, labelField: o.labelField || "",
     labelSize: o.labelSize ?? 22, fields: o.fields || (o.geojson ? propKeys(o.geojson) : []),
+    stationing: !!o.stationing, stationStart: o.stationStart ?? 0,
+    stationDirection: o.stationDirection === "reverse" ? "reverse" : "forward",
+    stationTickInterval: o.stationTickInterval ?? 50,
+    stationLabelInterval: o.stationLabelInterval ?? 100,
+    stationTickLength: o.stationTickLength ?? 16,
+    stationLabelSize: o.stationLabelSize ?? 18,
   })) : [];
   pendingSelection = data.selection || null;
   renderOverlayList();

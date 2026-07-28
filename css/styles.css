@@ -82,6 +82,14 @@ code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.9
 .ov-body .inline { gap: 6px; }
 .ov-body .ov-w, .ov-body .ov-ls { width: 64px; flex: none; }
 .ov-body .ov-label { width: 100%; }
+.ov-station { padding-top: 7px; border-top: 1px solid var(--line); }
+.ov-station > .chk { margin: 0; font-weight: 600; color: #26364d; }
+.ov-station-body { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.ov-station-body .row2 { gap: 7px; }
+.ov-station-body label { min-width: 0; }
+.ov-station-body input, .ov-station-body select { margin-top: 3px; }
+.ov-station-body .inline input { width: 68px; flex: none; }
+.ov-station-body .hint { margin: 0; }
 .mini { padding: 3px 8px; font-size: 0.8rem; background: #eef2f7; }
 .hint-list { margin: 2px 0 8px; padding-left: 18px; font-size: 0.8rem; color: #41506a; line-height: 1.45; }
 .hint-list li { margin-bottom: 5px; }
