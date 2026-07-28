@@ -5,7 +5,7 @@ import { makeColorFn, legendBands, paramDef, RAMPS, RAMP_OPTIONS } from "./ramps
 import { fillMesh, strokeMesh, strokeContours } from "./contour.js";
 import { makeView, FRAMES, ftPerPixel } from "./view.js";
 import { drawTitle, drawLegend, drawNorthArrow, drawScaleBar, drawAnnotations } from "./render.js";
-import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js";
+import { drawBasemap, ESRI_WORLD_IMAGERY } from "./tiles.js?v=20260728-uniform";
 import shp from "shpjs";
 import { drawOverlays, drawOverlayLabels, describe, propKeys, OVERLAY_PALETTE } from "./overlays.js";
 import { buildReportDocx } from "./reportdoc.js";
@@ -396,16 +396,25 @@ async function generate() {
 }
 
 // ---- render the live figure (reads the legend ramp/intervals the user edits) ----
+let liveRenderRevision = 0;
 async function render() {
   if (!scene) return;
+  const revision = ++liveRenderRevision;
+  const renderedScene = scene;
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
-  const cv = $("figure"); cv.width = frame.w; cv.height = frame.h;
-  await composeFigure(cv.getContext("2d"), frame, scene);
+  const output = document.createElement("canvas");
+  output.width = frame.w; output.height = frame.h;
+  await composeFigure(output.getContext("2d"), frame, renderedScene);
+  if (revision !== liveRenderRevision || renderedScene !== scene) return;
+
+  const cv = $("figure");
+  cv.width = frame.w; cv.height = frame.h;
+  cv.getContext("2d").drawImage(output, 0, 0);
   updateTitlePreview();
   $("download").disabled = false;
   $("download").onclick = () => {
     const a = document.createElement("a");
-    a.download = `${scene.fileBase}.png`;
+    a.download = `${renderedScene.fileBase}.png`;
     a.href = cv.toDataURL("image/png");
     a.click();
   };
