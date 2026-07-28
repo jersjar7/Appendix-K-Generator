@@ -38,6 +38,9 @@ const reverse = stationTicksForGeojson(line, {
 });
 assert.ok(reverse[0].coordinate[0] > reverse.at(-1).coordinate[0]);
 
+const defaultInterval = stationTicksForGeojson(line);
+assert.equal(defaultInterval[1].station - defaultInterval[0].station, 25);
+
 assert.equal(formatStation(0), "0+00");
 assert.equal(formatStation(1070), "10+70");
 assert.equal(formatStation(1100), "11+00");

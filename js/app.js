@@ -15,7 +15,7 @@ import {
   describe,
   propKeys,
   OVERLAY_PALETTE,
-} from "./overlays.js?v=20260728-station-halo";
+} from "./overlays.js?v=20260728-station-25ft";
 import { buildReportDocx } from "./reportdoc.js";
 import {
   CONDITION_ORDER,
@@ -219,7 +219,7 @@ async function ingestOverlayFiles(files) {
           geojson: fc, color: OVERLAY_PALETTE[overlays.length % OVERLAY_PALETTE.length],
           width: 3, hidden: false, labelField: "", labelSize: 22, fields: propKeys(fc), open: false,
           stationing: false, stationStart: 0, stationDirection: "forward",
-          stationTickInterval: 50, stationLabelInterval: 100,
+          stationTickInterval: 25, stationLabelInterval: 100,
           stationTickLength: 16, stationLabelSize: 18, stationLabelHalo: true,
         });
       }
@@ -267,7 +267,7 @@ function renderOverlayList() {
             </label>
             <div class="row2">
               <label>Starting station (ft)<input type="number" class="ov-station-start" value="${ov.stationStart ?? 0}" step="1" /></label>
-              <label>Tick interval (ft)<input type="number" class="ov-station-tick" value="${ov.stationTickInterval ?? 50}" min="0.01" step="1" /></label>
+              <label>Tick interval (ft)<input type="number" class="ov-station-tick" value="${ov.stationTickInterval ?? 25}" min="0.01" step="1" /></label>
             </div>
             <div class="row2">
               <label>Label every (ft)<input type="number" class="ov-station-label" value="${ov.stationLabelInterval ?? 100}" min="0.01" step="1" /></label>
@@ -298,7 +298,7 @@ function renderOverlayList() {
     });
     li.querySelector(".ov-station-direction").addEventListener("change", (e) => { ov.stationDirection = e.target.value; scene && render(); });
     li.querySelector(".ov-station-start").addEventListener("input", (e) => { ov.stationStart = parseFloat(e.target.value) || 0; scene && render(); });
-    li.querySelector(".ov-station-tick").addEventListener("input", (e) => { ov.stationTickInterval = Math.max(0.01, parseFloat(e.target.value) || 50); scene && render(); });
+    li.querySelector(".ov-station-tick").addEventListener("input", (e) => { ov.stationTickInterval = Math.max(0.01, parseFloat(e.target.value) || 25); scene && render(); });
     li.querySelector(".ov-station-label").addEventListener("input", (e) => { ov.stationLabelInterval = Math.max(0.01, parseFloat(e.target.value) || 100); scene && render(); });
     li.querySelector(".ov-station-length").addEventListener("input", (e) => { ov.stationTickLength = Math.max(4, parseFloat(e.target.value) || 16); scene && render(); });
     li.querySelector(".ov-station-size").addEventListener("input", (e) => { ov.stationLabelSize = Math.max(8, parseFloat(e.target.value) || 18); scene && render(); });
@@ -885,7 +885,7 @@ function applyProject(data) {
     labelSize: o.labelSize ?? 22, fields: o.fields || (o.geojson ? propKeys(o.geojson) : []),
     stationing: !!o.stationing, stationStart: o.stationStart ?? 0,
     stationDirection: o.stationDirection === "reverse" ? "reverse" : "forward",
-    stationTickInterval: o.stationTickInterval ?? 50,
+    stationTickInterval: o.stationTickInterval ?? 25,
     stationLabelInterval: o.stationLabelInterval ?? 100,
     stationTickLength: o.stationTickLength ?? 16,
     stationLabelSize: o.stationLabelSize ?? 18,
