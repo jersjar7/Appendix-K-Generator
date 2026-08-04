@@ -92,6 +92,11 @@ code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.9
 .ov-station-label-style { align-items: end; }
 .ov-station-label-style .chk { min-height: 35px; margin: 0; }
 .ov-station-body .hint { margin: 0; }
+.ov-station-adjustments { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px; }
+.ov-station-selected { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
+.ov-station-adjustments button { padding: 5px 7px; font-size: 11px; }
+#figure.station-label-hover { cursor: grab; }
+#figure.dragging-station-label { cursor: grabbing; }
 .mini { padding: 3px 8px; font-size: 0.8rem; background: #eef2f7; }
 .hint-list { margin: 2px 0 8px; padding-left: 18px; font-size: 0.8rem; color: #41506a; line-height: 1.45; }
 .hint-list li { margin-bottom: 5px; }

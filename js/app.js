@@ -12,10 +12,11 @@ import {
   drawOverlayLabels,
   drawOverlayStationLabels,
   drawOverlayStationTicks,
+  hitTestStationLabel,
   describe,
   propKeys,
   OVERLAY_PALETTE,
-} from "./overlays.js?v=20260728-station-25ft";
+} from "./overlays.js?v=20260804-station-label-offset";
 import { buildReportDocx } from "./reportdoc.js";
 import {
   CONDITION_ORDER,
@@ -64,6 +65,9 @@ let overlays = [];       // [{ name, geojson, color, width, hidden }]
 let annotations = [];    // user text labels + arrows (see drawAnnotations in render.js)
 let annoSeq = 0;
 let rotDeg = 0, zoom = 1, panX = 0, panY = 0;
+let liveStationLabelLayouts = [];
+let stationLabelDrag = null;
+let stationDragRenderPending = false;
 const PAN_STEP = 30;     // screen px per pan click (frame coords) — small for fine control
 const ZOOM_STEP = 1.08;  // zoom factor per click — small for fine control
 const ANNO_NUDGE = 10;   // px per annotation nudge click
@@ -221,6 +225,7 @@ async function ingestOverlayFiles(files) {
           stationing: false, stationStart: 0, stationDirection: "forward",
           stationTickInterval: 25, stationLabelInterval: 100,
           stationTickLength: 16, stationLabelSize: 18, stationLabelHalo: true,
+          stationLabelOffset: 10, stationLabelSide: "auto", stationLabelOverrides: {},
         });
       }
       if (usedMeshCrs) msg(`Read ${escapeHtml(file.name)} using the loaded mesh CRS because its shapefile projection is not supported directly.`, "warn");
@@ -277,12 +282,28 @@ function renderOverlayList() {
               <label class="inline">Label size <input type="number" class="ov-station-size" value="${ov.stationLabelSize ?? 18}" min="8" max="48" step="1" /></label>
               <label class="chk"><input type="checkbox" class="ov-station-halo"${ov.stationLabelHalo !== false ? " checked" : ""} /> Text halo</label>
             </div>
-            <p class="hint tiny">Values increase upstream along the longest line feature. Reverse A/B if the labels increase downstream.</p>
+            <div class="row2">
+              <label>Label offset (px)<input type="number" class="ov-station-offset" value="${ov.stationLabelOffset ?? 10}" min="0" max="120" step="1" /></label>
+              <label>Label side
+                <select class="ov-station-side">
+                  <option value="auto"${!ov.stationLabelSide || ov.stationLabelSide === "auto" ? " selected" : ""}>Auto</option>
+                  <option value="left"${ov.stationLabelSide === "left" ? " selected" : ""}>Left</option>
+                  <option value="right"${ov.stationLabelSide === "right" ? " selected" : ""}>Right</option>
+                </select>
+              </label>
+            </div>
+            <div class="ov-station-adjustments">
+              <span class="ov-station-selected">${ov.stationSelectedText ? `Selected: ${escapeHtml(ov.stationSelectedText)}` : "Click or drag a station label"}</span>
+              <button type="button" class="ov-station-reset-one"${ov.stationSelectedLabel && ov.stationLabelOverrides?.[ov.stationSelectedLabel] ? "" : " disabled"}>Reset selected</button>
+              <button type="button" class="ov-station-reset-all"${Object.keys(ov.stationLabelOverrides || {}).length ? "" : " disabled"}>Reset all</button>
+            </div>
+            <p class="hint tiny">Left/right follow increasing station. Drag labels on the figure for individual adjustments. Reverse A/B if labels increase downstream.</p>
           </div>
         </div>
       </div>`;
     const body = li.querySelector(".ov-body"), lsize = li.querySelector(".ov-lsize");
     const stationBody = li.querySelector(".ov-station-body");
+    li.dataset.overlayIndex = String(i);
     li.querySelector(".ov-expand").addEventListener("click", (e) => {
       ov.open = !ov.open; body.hidden = !ov.open;
       e.currentTarget.textContent = ov.open ? "▴" : "▾";
@@ -303,9 +324,30 @@ function renderOverlayList() {
     li.querySelector(".ov-station-length").addEventListener("input", (e) => { ov.stationTickLength = Math.max(4, parseFloat(e.target.value) || 16); scene && render(); });
     li.querySelector(".ov-station-size").addEventListener("input", (e) => { ov.stationLabelSize = Math.max(8, parseFloat(e.target.value) || 18); scene && render(); });
     li.querySelector(".ov-station-halo").addEventListener("change", (e) => { ov.stationLabelHalo = e.target.checked; scene && render(); });
+    li.querySelector(".ov-station-offset").addEventListener("input", (e) => { ov.stationLabelOffset = Math.max(0, parseFloat(e.target.value) || 0); scene && render(); });
+    li.querySelector(".ov-station-side").addEventListener("change", (e) => { ov.stationLabelSide = e.target.value; scene && render(); });
+    li.querySelector(".ov-station-reset-one").addEventListener("click", () => {
+      if (!ov.stationSelectedLabel) return;
+      delete (ov.stationLabelOverrides ||= {})[ov.stationSelectedLabel];
+      syncStationAdjustmentControls(ov, li); scene && render();
+    });
+    li.querySelector(".ov-station-reset-all").addEventListener("click", () => {
+      ov.stationLabelOverrides = {};
+      syncStationAdjustmentControls(ov, li); scene && render();
+    });
     li.querySelector(".ov-del").addEventListener("click", () => { overlays.splice(i, 1); renderOverlayList(); scene && render(); });
     ul.appendChild(li);
   });
+}
+function syncStationAdjustmentControls(ov, li) {
+  const selected = li.querySelector(".ov-station-selected");
+  const resetOne = li.querySelector(".ov-station-reset-one");
+  const resetAll = li.querySelector(".ov-station-reset-all");
+  if (selected) selected.textContent = ov.stationSelectedText
+    ? `Selected: ${ov.stationSelectedText}`
+    : "Click or drag a station label";
+  if (resetOne) resetOne.disabled = !(ov.stationSelectedLabel && ov.stationLabelOverrides?.[ov.stationSelectedLabel]);
+  if (resetAll) resetAll.disabled = !Object.keys(ov.stationLabelOverrides || {}).length;
 }
 function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function escapeAttr(s) { return String(s).replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
@@ -450,12 +492,13 @@ async function render() {
   const frame = FRAMES[$("orientation").value] || FRAMES.landscape;
   const output = document.createElement("canvas");
   output.width = frame.w; output.height = frame.h;
-  await composeFigure(output.getContext("2d"), frame, renderedScene);
+  const composition = await composeFigure(output.getContext("2d"), frame, renderedScene);
   if (revision !== liveRenderRevision || renderedScene !== scene) return;
 
   const cv = $("figure");
   cv.width = frame.w; cv.height = frame.h;
   cv.getContext("2d").drawImage(output, 0, 0);
+  liveStationLabelLayouts = composition.stationLabels;
   updateTitlePreview();
   $("download").disabled = false;
   $("download").onclick = () => {
@@ -500,7 +543,7 @@ async function composeFigure(ctx, frame, fig) {
   drawOverlayStationTicks(ctx, overlays, view);
   ctx.restore();
   drawOverlayLabels(ctx, overlays, view);
-  drawOverlayStationLabels(ctx, overlays, view);
+  const stationLabels = drawOverlayStationLabels(ctx, overlays, view);
 
   const F = { frameW: frame.w, frameH: frame.h };
   if (on("showTitle")) drawTitle(ctx, figTitle(fig), {
@@ -522,7 +565,86 @@ async function composeFigure(ctx, frame, fig) {
     ftPerPixel: ftPerPixel(view, fig.proj.latRad), sizeScale: num("sbSize", 1.4), segments: num("sbSegments", 4),
   });
   if (on("showAnnos")) drawAnnotations(ctx, view, annotations);
+  return { stationLabels };
 }
+
+function figurePoint(event) {
+  const canvas = $("figure"), rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * canvas.width / rect.width,
+    y: (event.clientY - rect.top) * canvas.height / rect.height,
+  };
+}
+
+function stationOverlayItem(index) {
+  return $("overlayList").querySelector(`[data-overlay-index="${index}"]`);
+}
+
+function scheduleStationDragRender() {
+  if (stationDragRenderPending) return;
+  stationDragRenderPending = true;
+  requestAnimationFrame(() => {
+    stationDragRenderPending = false;
+    if (scene) render();
+  });
+}
+
+$("figure").addEventListener("pointerdown", (event) => {
+  const point = figurePoint(event);
+  const hit = hitTestStationLabel(liveStationLabelLayouts, point.x, point.y);
+  if (!hit) return;
+  const ov = overlays[hit.overlayIndex];
+  if (!ov) return;
+  ov.stationSelectedLabel = hit.stationKey;
+  ov.stationSelectedText = hit.text;
+  const current = ov.stationLabelOverrides?.[hit.stationKey] || {};
+  stationLabelDrag = {
+    pointerId: event.pointerId, hit, startX: point.x, startY: point.y,
+    along: Number(current.along) || 0, across: Number(current.across) || 0,
+  };
+  $("figure").setPointerCapture(event.pointerId);
+  $("figure").classList.add("dragging-station-label");
+  const li = stationOverlayItem(hit.overlayIndex);
+  if (li) syncStationAdjustmentControls(ov, li);
+  event.preventDefault();
+});
+
+$("figure").addEventListener("pointermove", (event) => {
+  const point = figurePoint(event);
+  if (!stationLabelDrag) {
+    $("figure").classList.toggle(
+      "station-label-hover",
+      !!hitTestStationLabel(liveStationLabelLayouts, point.x, point.y),
+    );
+    return;
+  }
+  if (event.pointerId !== stationLabelDrag.pointerId) return;
+  const { hit } = stationLabelDrag;
+  const ov = overlays[hit.overlayIndex];
+  if (!ov) return;
+  const dx = point.x - stationLabelDrag.startX;
+  const dy = point.y - stationLabelDrag.startY;
+  (ov.stationLabelOverrides ||= {})[hit.stationKey] = {
+    along: stationLabelDrag.along + dx * hit.tangentX + dy * hit.tangentY,
+    across: stationLabelDrag.across + dx * hit.normalX + dy * hit.normalY,
+  };
+  const li = stationOverlayItem(hit.overlayIndex);
+  if (li) syncStationAdjustmentControls(ov, li);
+  scheduleStationDragRender();
+});
+
+function endStationLabelDrag(event) {
+  if (!stationLabelDrag || event.pointerId !== stationLabelDrag.pointerId) return;
+  stationLabelDrag = null;
+  $("figure").classList.remove("dragging-station-label");
+  if ($("figure").hasPointerCapture(event.pointerId)) $("figure").releasePointerCapture(event.pointerId);
+  if (scene) render();
+}
+$("figure").addEventListener("pointerup", endStationLabelDrag);
+$("figure").addEventListener("pointercancel", endStationLabelDrag);
+$("figure").addEventListener("pointerleave", () => {
+  if (!stationLabelDrag) $("figure").classList.remove("station-label-hover");
+});
 
 // ---- view + legend controls (live re-render from the cached scene) ----
 $("orientation").addEventListener("change", () => scene && render());
@@ -838,7 +960,7 @@ function collectProject() {
   for (const [k, v] of legendByParam) legend[k] = v;
   const sel = allRuns()[+$("run").value];
   return {
-    app: PROJECT_FORMAT, version: 3,
+    app: PROJECT_FORMAT, version: 4,
     view: { rotDeg, zoom, panX, panY },
     selection: sel ? { run: sel.run.name, param: $("param").value } : (scene ? null : pendingSelection),
     controls, legend, annoSeq, annotations,
@@ -848,7 +970,8 @@ function collectProject() {
       stationing: o.stationing, stationStart: o.stationStart, stationDirection: o.stationDirection,
       stationTickInterval: o.stationTickInterval, stationLabelInterval: o.stationLabelInterval,
       stationTickLength: o.stationTickLength, stationLabelSize: o.stationLabelSize,
-      stationLabelHalo: o.stationLabelHalo,
+      stationLabelHalo: o.stationLabelHalo, stationLabelOffset: o.stationLabelOffset,
+      stationLabelSide: o.stationLabelSide, stationLabelOverrides: o.stationLabelOverrides,
     })),
   };
 }
@@ -890,6 +1013,10 @@ function applyProject(data) {
     stationTickLength: o.stationTickLength ?? 16,
     stationLabelSize: o.stationLabelSize ?? 18,
     stationLabelHalo: o.stationLabelHalo !== false,
+    stationLabelOffset: o.stationLabelOffset ?? 10,
+    stationLabelSide: ["left", "right"].includes(o.stationLabelSide) ? o.stationLabelSide : "auto",
+    stationLabelOverrides: o.stationLabelOverrides && typeof o.stationLabelOverrides === "object"
+      ? o.stationLabelOverrides : {},
   })) : [];
   pendingSelection = data.selection || null;
   renderOverlayList();

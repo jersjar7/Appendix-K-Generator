@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import {
   drawOverlayStationLabels,
   formatStation,
+  hitTestStationLabel,
+  stationLabelKey,
   stationTicksForGeojson,
 } from "../js/overlays.js";
 
@@ -78,5 +80,54 @@ assert.equal(haloOn.stroke, haloOn.fill);
 const haloOff = labelDrawCounts(false);
 assert.equal(haloOff.fill, haloOn.fill);
 assert.equal(haloOff.stroke, 0);
+
+function labelLayouts(options = {}) {
+  const ctx = {
+    save() {},
+    restore() {},
+    fillText() {},
+    strokeText() {},
+    measureText(text) { return { width: text.length * 10 }; },
+  };
+  const view = {
+    rotRad: 0,
+    originX: 0,
+    originY: 0,
+    toLocal(x, y) { return [x, y]; },
+  };
+  return drawOverlayStationLabels(ctx, [{
+    geojson: line,
+    color: "#e8112d",
+    stationing: true,
+    stationTickInterval: 25,
+    stationLabelInterval: 100,
+    stationTickLength: 16,
+    stationLabelSize: 18,
+    stationLabelOffset: 10,
+    stationLabelSide: "left",
+    ...options,
+  }], view);
+}
+
+const leftLabels = labelLayouts();
+const fartherLabels = labelLayouts({ stationLabelOffset: 30 });
+const rightLabels = labelLayouts({ stationLabelSide: "right" });
+assert.ok(leftLabels.length > 0);
+assert.ok(fartherLabels[0].y > leftLabels[0].y);
+assert.equal(Math.round(fartherLabels[0].y - leftLabels[0].y), 20);
+assert.ok(leftLabels[0].y > 0);
+assert.ok(rightLabels[0].y < 0);
+
+const firstKey = stationLabelKey(leftLabels[0].station);
+const adjustedLabels = labelLayouts({
+  stationLabelOverrides: { [firstKey]: { along: 15, across: -7 } },
+});
+assert.equal(Math.round(adjustedLabels[0].x - leftLabels[0].x), 15);
+assert.equal(Math.round(adjustedLabels[0].y - leftLabels[0].y), -7);
+assert.equal(
+  hitTestStationLabel([adjustedLabels[0]], adjustedLabels[0].x, adjustedLabels[0].y)?.stationKey,
+  firstKey,
+);
+assert.equal(hitTestStationLabel(adjustedLabels, -1000, -1000), null);
 
 console.log("Overlay stationing tests passed.");

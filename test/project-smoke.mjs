@@ -4,11 +4,17 @@ import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".h5": "application/octet-stream" };
 const server = createServer(async (req, res) => {
   try {
+    if (req.url.split("?")[0] === "/favicon.ico") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
     const p = join(ROOT, decodeURIComponent(req.url.split("?")[0]));
     const body = await readFile(p);
     res.writeHead(200, { "content-type": MIME[extname(p)] || "application/octet-stream" });
@@ -18,7 +24,13 @@ const server = createServer(async (req, res) => {
 await new Promise((r) => server.listen(8137, r));
 
 const fail = (m) => { console.error("FAIL:", m); process.exitCode = 1; };
-const browser = await chromium.launch();
+let browser;
+try {
+  browser = await chromium.launch();
+} catch (error) {
+  if (!/Executable doesn't exist/i.test(String(error))) throw error;
+  browser = await chromium.launch({ channel: "chrome" });
+}
 const page = await browser.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));

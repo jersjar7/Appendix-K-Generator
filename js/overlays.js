@@ -148,11 +148,17 @@ export function drawOverlayLabels(ctx, overlays, view) {
 }
 
 export function drawOverlayStationLabels(ctx, overlays, view) {
-  for (const ov of overlays) {
+  const layouts = [];
+  for (let overlayIndex = 0; overlayIndex < overlays.length; overlayIndex++) {
+    const ov = overlays[overlayIndex];
     if (ov.hidden || !ov.stationing) continue;
     const ticks = stationTicksForGeojson(ov.geojson, ov);
     const fontSize = Math.max(8, Number(ov.stationLabelSize) || 18);
     const tickLength = Math.max(4, Number(ov.stationTickLength) || 16);
+    const configuredGap = Number(ov.stationLabelOffset);
+    const labelGap = Number.isFinite(configuredGap) ? Math.max(0, configuredGap) : 10;
+    const side = ov.stationLabelSide === "right" ? -1 : 1;
+    const overrides = ov.stationLabelOverrides || {};
     const color = ov.stationColor || ov.color;
     const showHalo = ov.stationLabelHalo !== false;
     ctx.save();
@@ -171,15 +177,45 @@ export function drawOverlayStationLabels(ctx, overlays, view) {
       const dx = after[0] - before[0], dy = after[1] - before[1];
       const magnitude = Math.hypot(dx, dy);
       if (!magnitude) continue;
-      const nx = -dy / magnitude, ny = dx / magnitude;
-      const offset = tickLength * 0.9 + fontSize * 0.58;
-      const x = point[0] + nx * offset, y = point[1] + ny * offset;
+      const tx = dx / magnitude, ty = dy / magnitude;
+      const nx = -ty, ny = tx;
+      const offset = tickLength * 0.72 + labelGap + fontSize * 0.5;
+      const key = stationLabelKey(tick.station);
+      const adjustment = overrides[key] || {};
+      const along = Number(adjustment.along) || 0;
+      const across = Number(adjustment.across) || 0;
+      const x = point[0] + nx * side * offset + tx * along + nx * across;
+      const y = point[1] + ny * side * offset + ty * along + ny * across;
       const text = formatStation(tick.station);
       if (showHalo) ctx.strokeText(text, x, y);
       ctx.fillText(text, x, y);
+      const measured = typeof ctx.measureText === "function"
+        ? ctx.measureText(text).width
+        : text.length * fontSize * 0.62;
+      layouts.push({
+        overlayIndex, stationKey: key, station: tick.station, text,
+        x, y, width: measured, height: fontSize * 1.3,
+        tangentX: tx, tangentY: ty, normalX: nx, normalY: ny,
+      });
     }
     ctx.restore();
   }
+  return layouts;
+}
+
+export function stationLabelKey(station) {
+  return Number(station).toFixed(6);
+}
+
+export function hitTestStationLabel(layouts, x, y, padding = 5) {
+  for (let i = layouts.length - 1; i >= 0; i--) {
+    const label = layouts[i];
+    if (
+      Math.abs(x - label.x) <= label.width / 2 + padding &&
+      Math.abs(y - label.y) <= label.height / 2 + padding
+    ) return label;
+  }
+  return null;
 }
 
 function linePaths(geometry) {
